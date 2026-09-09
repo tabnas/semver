@@ -3,9 +3,11 @@ version
 # specification defines it. Both runtimes check every pair (i, j) with
 # i < j compares -1, and the reverse 1, so this pins transitivity too.
 #
-# §11.4: a pre-release ranks below its normal version; numeric
-# identifiers numerically; alphanumeric ones in ASCII order; numeric
-# below alphanumeric; a longer identifier set above a shorter prefix.
+# §11.3: a pre-release version ranks below its associated normal
+# version. §11.4, comparing two pre-release versions identifier by
+# identifier: numeric identifiers numerically; alphanumeric ones in
+# ASCII order; numeric below alphanumeric; a longer identifier set above
+# a shorter prefix of it.
 0.0.0-0
 0.0.0-0.0
 0.0.0-0.1

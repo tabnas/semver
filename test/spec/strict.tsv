@@ -1,9 +1,11 @@
 input	expected
 # Everything here is outside the specification's grammar, and every
 # rejection is the engine's base `unexpected` code — this plugin declares
-# no codes of its own (see AGENTS.md). The verdicts were checked against
-# the regular expression semver.org publishes; ts/test/oracle.test.ts and
-# go/oracle_test.go re-check them on every run.
+# no codes of its own (see AGENTS.md). Every verdict here was checked
+# against the regular expression semver.org publishes, the same judge
+# ts/test/oracle.test.ts and go/oracle_test.go use; those suites grade a
+# generated corpus rather than this file, so they do not re-check these
+# rows. Both runtimes run every row through the shared parity runners.
 #
 # Incomplete version core.
 	ERROR:unexpected
@@ -152,8 +154,8 @@ V1.2.3	ERROR:unexpected
 1.2.3-😀	ERROR:unexpected
 1.2.3-a b	ERROR:unexpected
 # Nearly-a-version strings.
-1.2.3-	ERROR:unexpected
-1.2	ERROR:unexpected
+release-1.2.3	ERROR:unexpected
+1.2.3.RELEASE	ERROR:unexpected
 1.2.x	ERROR:unexpected
 1.x.3	ERROR:unexpected
 x.2.3	ERROR:unexpected

@@ -13,8 +13,9 @@ What differs, and why it matters:
 | File | Change | Effect while not promoted |
 |---|---|---|
 | `ci.yml` | `deps: "parser support bnf abnf debug"` (was `parser support debug json jsonic`) | CI resolves `@tabnas/bnf` and `@tabnas/abnf` from the npm registry instead of the sibling `main` checkouts, so the TypeScript side runs against whatever is published rather than the fleet's current tip. The suite passes on both — see the toolchain note in [`AGENTS.md`](../AGENTS.md#the-tabnas-engine-dependency). `json` and `jsonic` are cloned for nothing. |
-| `clib.yml`, `clib-release.yml` | `libtabnaszon` → `libtabnassemver` | The clib PR gate builds fine either way (it runs `go/clib/build.sh`, which knows its own name); the release lane would publish artifacts under the wrong library name. |
-| `release.yml`, `notify-status.yml`, `scorecard.yml` | header comments only (`Target: tabnas/zon` → `tabnas/semver`) | None — the bodies read the package name from `ts/package.json`. |
+| `clib-release.yml` | `libtabnaszon` → `libtabnassemver` (three `lib:` inputs and a header comment) | The release lane would publish the C library artifacts under the wrong name. `clib.yml`, the PR gate, needs no change at all — it runs `go/clib/build.sh`, which knows its own name — so it is not staged here. |
+| `release.yml` | the npm package name is read from `ts/package.json` instead of hardcoded, and the header comments name this repository | **The live file gates and skips publication on `@tabnas/zon`.** It reads the *version* from `ts/package.json` but names the package as a literal in three places, so a release run would ask npm about the wrong package: it would refuse a legitimate repair (the version "is not on npm") and, worse, could skip publishing `@tabnas/semver` because a `@tabnas/zon` of that version exists. Reading the name from the same file the version comes from is what stops a copied workflow drifting again. |
+| `notify-status.yml`, `scorecard.yml` | header comments only (`Target: tabnas/zon` → `tabnas/semver`) | None — neither body names the package. |
 
 Diff a staged file against its live twin to see exactly what changes:
 

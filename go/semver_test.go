@@ -11,6 +11,7 @@ package tabnassemver
 
 import (
 	"encoding/json"
+	"math"
 	"math/big"
 	"reflect"
 	"strings"
@@ -168,6 +169,46 @@ func TestFormatHandBuilt(t *testing.T) {
 	}
 	if _, err := Format(value(1.5, 0.0, 0.0, nil, nil)); err == nil {
 		t.Error("Format of a fractional component should fail")
+	}
+}
+
+// A float64 that is not a finite integer is not a component any parse can
+// produce, and every entry point has to say so rather than render it or
+// panic. An infinity is the one that slipped through: math.Trunc(+Inf) is
+// +Inf and +Inf < 0 is false, so it passed the integer and sign tests,
+// Format rendered "+Inf.0.0", and Compare against a *big.Int operand
+// dereferenced the nil that big.Float.Int returns for it.
+func TestNonFiniteComponentsRejected(t *testing.T) {
+	bad := []struct {
+		name string
+		n    float64
+	}{
+		{"+Inf", math.Inf(1)},
+		{"-Inf", math.Inf(-1)},
+		{"NaN", math.NaN()},
+	}
+	big1 := value(bigOf("9007199254740993"), 0.0, 0.0, nil, nil)
+	one := value(1.0, 0.0, 0.0, nil, nil)
+
+	for _, b := range bad {
+		v := value(b.n, 0.0, 0.0, nil, nil)
+		if out, err := Format(v); err == nil {
+			t.Errorf("Format(%s) = %q, want an error", b.name, out)
+		}
+		p := value(1.0, 0.0, 0.0, []any{b.n}, nil)
+		if out, err := Format(p); err == nil {
+			t.Errorf("Format(prerelease %s) = %q, want an error", b.name, out)
+		}
+		// Both orders, and against both a float64 and a *big.Int
+		// operand: only the *big.Int path reached big.Float.Int.
+		for _, other := range []map[string]any{big1, one} {
+			if _, err := Compare(v, other); err == nil {
+				t.Errorf("Compare(%s, other) = nil error, want an error", b.name)
+			}
+			if _, err := Compare(other, v); err == nil {
+				t.Errorf("Compare(other, %s) = nil error, want an error", b.name)
+			}
+		}
 	}
 }
 

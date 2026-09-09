@@ -83,8 +83,14 @@ jobs:
         id: v
         run: |
           V="$(node -p "require('./ts/package.json').version")"
+          # The package NAME comes from the same file as the version. It
+          # used to be hardcoded, which is how a scaffolded copy of this
+          # workflow went on gating the release on another package's
+          # registry entry.
+          P="$(node -p "require('./ts/package.json').name")"
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          echo "Releasing $V"
+          echo "package=$P" >> "$GITHUB_OUTPUT"
+          echo "Releasing $P@$V"
 
       # A dispatch is NOT inherently tied to the default branch — the ref
       # is a parameter, so dispatching a version-bump feature branch would
@@ -131,7 +137,7 @@ jobs:
           if [ -z "$ANCHOR" ]; then
             ANCHOR="$HEAD_C"
           elif [ "$ANCHOR" != "$HEAD_C" ]; then
-            if ! npm view "@tabnas/zon@$V" version >/dev/null 2>&1; then
+            if ! npm view "${{ steps.v.outputs.package }}@$V" version >/dev/null 2>&1; then
               echo "::error::$V is tagged at $ANCHOR but is not on npm — publishing would ship HEAD while the tags name an older commit; resolve by hand"
               exit 1
             fi
@@ -149,9 +155,10 @@ jobs:
         working-directory: ts
         run: |
           V="${{ steps.v.outputs.version }}"
+          P="${{ steps.v.outputs.package }}"
           npm install -g npm@latest
-          if npm view "@tabnas/zon@$V" version >/dev/null 2>&1; then
-            echo "@tabnas/zon@$V is already on npm — skipping publish"
+          if npm view "$P@$V" version >/dev/null 2>&1; then
+            echo "$P@$V is already on npm — skipping publish"
           else
             npm i
             npm run build --if-present

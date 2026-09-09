@@ -445,6 +445,12 @@ func Format(v any) (string, error) {
 func numberText(n any) (string, error) {
 	switch x := n.(type) {
 	case float64:
+		// The finite test comes first: +Inf survives both of the others
+		// (Trunc(+Inf) is +Inf, and +Inf < 0 is false) and would render
+		// as "+Inf".
+		if err := finite(x); err != nil {
+			return "", err
+		}
 		if x != math.Trunc(x) || x < 0 {
 			return "", fmt.Errorf("not a non-negative integer: %v", x)
 		}
@@ -497,6 +503,17 @@ func compareNumber(x, y any) (int, error) {
 	xf, xOK := x.(float64)
 	yf, yOK := y.(float64)
 	if xOK && yOK {
+		// The fast path still has to reject what a parse cannot produce:
+		// every comparison with a NaN is false, so without this it would
+		// report two versions equal, and an infinity would order against
+		// a real version instead of failing as it does on the *big.Int
+		// path below.
+		if err := finite(xf); err != nil {
+			return 0, err
+		}
+		if err := finite(yf); err != nil {
+			return 0, err
+		}
 		switch {
 		case xf < yf:
 			return -1, nil
@@ -516,9 +533,25 @@ func compareNumber(x, y any) (int, error) {
 	return xb.Cmp(yb), nil
 }
 
+// finite rejects the float64 values no parse produces: an infinity
+// (which passes an integer test, since Trunc(+Inf) is +Inf) and a NaN
+// (which compares false against everything, itself included).
+func finite(x float64) error {
+	if math.IsInf(x, 0) || math.IsNaN(x) {
+		return fmt.Errorf("not a finite number: %v", x)
+	}
+	return nil
+}
+
 func toBig(n any) (*big.Int, error) {
 	switch x := n.(type) {
 	case float64:
+		// Without the finite test an infinity reached big.Float.Int,
+		// which returns nil for it, and the caller's Cmp dereferenced
+		// that nil.
+		if err := finite(x); err != nil {
+			return nil, err
+		}
 		if x != math.Trunc(x) {
 			return nil, fmt.Errorf("not an integer: %v", x)
 		}
