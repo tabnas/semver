@@ -100,7 +100,7 @@ grammar, 150 rules over seven tokens:
 | `"0"`, `"."`, `"-"`, `"+"` | fixed tokens `#0`, `#T`, `#T1`, `#T2` |
 | `%x31-39`, `%x41-5A`, `%x61-7A` | one regex class token each |
 | `*digit`, `[ … ]`, `1*identifier-character`, `( … )` | helper rules (`_gen5_star_digit`, `_gen13_opt__gen12_group`, …) |
-| an alternative with a reference in its middle | a head rule plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
+| an alternative in which a reference is followed by more — another reference or a terminal | a head rule (`<rule>$altN`, one per alternative, when the production has several) plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
 | the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
 One character is one token, because the grammar names only single
@@ -116,12 +116,17 @@ alternative that *begins* with a reference to another rule has that
 rule's alternatives inlined, recursively, which is what fills in the
 lookahead columns. Here that dissolves `version-core`, `major` and the
 `numeric-identifier` beneath them into `valid-semver` — the compiled
-`valid-semver` opens directly on `#0 #T` or a positive digit and pushes
-`minor` — and likewise the first `pre-release-identifier` into
+`valid-semver` dispatches on `#0` or a positive digit at its first slot,
+and the alternative it picks consumes the major and its `.` itself, then
+pushes `minor` — and likewise the first `pre-release-identifier` into
 `pre-release` and the first `build-identifier` into `build`. The parse
 never pushes those rules, so they never get a node and never fire a
 lifecycle hook, while `minor`, `patch` and every identifier after the
-first do. So the parse tree is not the grammar tree, and which rules the
+first do. The one shape the substitution leaves alone is a pure alias —
+a production that is nothing but a single reference, outside any cycle,
+such as `semver = valid-semver` or `minor = numeric-identifier` — which
+is why `semver` survives to push `valid-semver` and to carry the hook
+below. So the parse tree is not the grammar tree, and which rules the
 compiler keeps is a property of the compiler, not of the specification;
 a value built by walking the tree would be coupled to that detail.
 
@@ -245,30 +250,42 @@ The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
 the shared fixture `test/precedence/order.tsv`, which both runtimes check
 pairwise in both directions, so transitivity is pinned too;
-`equal.tsv` holds the pairs that differ only in build metadata.
+`equal.tsv` holds pairs that differ at most in build metadata.
 
 ## Why every default lexer is off
 
 The engine's defaults are JSON's: it skips whitespace, line ends and
 comments, lexes quoted strings, numbers, bare words and keyword values
-such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Each
-of those would let the plugin accept something the specification
-rejects — `' 1.2.3'`, `'1.2.3\n'`, `'"1.2.3"'`, `'1.2.3#comment'` — or
-mis-lex something it accepts, such as the pre-release identifier `true`.
+such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Three
+of those lexers would let the plugin accept something the specification
+rejects: with the space lexer on, `' 1.2.3'` and `'1.2.3 '` parse; with
+the line lexer, `'1.2.3\n'`; with the comment lexer, `'1.2.3#comment'`
+and `'1.2.3//comment'`. The other four — string, number, text and
+value — change no verdict on this grammar, because the engine tries a
+grammar's own class and fixed tokens before any default lexer, so a
+digit or a letter is the grammar's token first and `1.0.0-true.null`
+parses either way; they are off all the same, so that what is accepted
+never depends on the order in which the lexer tries its matchers.
 
 So the plugin sets, on the compiled spec's options, `lex: false` for the
 space, line, comment, string, number, text and value lexers; unbinds the
 six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`, `#CA`); and
 sets `lex.empty: false`, so an empty source is a parse error rather than
-the engine's default answer of `undefined`. What remains is exactly the
-grammar's seven tokens. A character the grammar does not name — a
-blank, a tab, a newline, a quote, a `v` prefix — has no matcher at all
-and is rejected as `unexpected` at its position, never skipped, never
-swallowed. The punctuation is unbound rather than merely unused so that
-JSON's tokens do not show up in diagnostics and introspection as tokens
-of this grammar. Turn any of these defaults back on and the plugin
-accepts strings the specification rejects; the options ride on the spec
-precisely so that they can only arrive together with the grammar.
+the engine's default answer of `undefined`. What the input can still
+produce is exactly the grammar's seven tokens. A character the grammar
+does not name — a blank, a tab, a newline, a quote, a `v` prefix — has
+no matcher at all and is rejected as `unexpected` at its position, never
+skipped, never swallowed. The punctuation is unbound rather than merely
+unused so that a `{` in the input is not lexed as JSON's `#OB`: with the
+binding in place, `1.2.3{` would fail as a well-formed token the grammar
+did not want, expecting only end-of-source; unbound, it fails as an
+unknown character, and the diagnostic lists the grammar's own tokens as
+what was expected. (The engine's slots for the six still exist — the
+debug model lists them, without source text — but nothing in the input
+can produce them.) Turn the space, line or comment lexer back on and the
+plugin accepts strings the specification rejects; the options ride on
+the spec precisely so that they can only arrive together with the
+grammar.
 
 ```js
 import { Tabnas } from '@tabnas/parser'
@@ -374,15 +391,16 @@ tokens eager, so a class can be lexed at any lookahead slot
 slot before the eager ones it does not
 ([tabnas/parser#161](https://github.com/tabnas/parser/pull/161)). The
 plugin carries the first itself — after compiling, it sets `eager$` on
-every class token, a no-op once the emitter has done so. The second
-lives in the engine, and this grammar does not need it: its three
-classes and four literals are pairwise disjoint, so no character can be
-cut two ways and the order the lexer tries tokens in cannot matter. So
-an isolated `npm install` against the published `@tabnas/bnf` 0.1.10 and
-`@tabnas/parser` 0.9.0 passes the whole suite, oracle corpus included.
-Without the port it rejected strings such as `1.0.0-01a` and
-`1.0.0-12a`: the `*digit` helper peeks two digits, and the letter that
-ends the run lexed as a fatal bad token at the second slot. The fleet
-layout, with sibling checkouts linked into `node_modules`, gets the same
-behaviour from the fixed toolchain, and the Go module never needed
-either fix.
+every class token; the published emitter leaves the flag unset, so there
+the loop is what makes the difference, and it is a no-op once the
+emitter sets it. The second lives in the engine, and this grammar does
+not need it: its three classes and four literals are pairwise disjoint,
+so no character can be cut two ways and the order the lexer tries
+tokens in cannot matter. So an isolated `npm install` against the
+published `@tabnas/bnf` 0.1.10 and `@tabnas/parser` 0.9.0 passes the
+whole suite, oracle corpus included. Without the port it rejected
+strings such as `1.0.0-01a` and `1.0.0-12a`: the `*digit` helper peeks
+two digits, and the letter that ends the run lexed as a fatal bad token
+at the second slot. The fleet layout, with sibling checkouts linked into
+`node_modules`, gets the same behaviour from the fixed toolchain, and
+the Go module never needed either fix.

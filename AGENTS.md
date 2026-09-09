@@ -217,11 +217,13 @@ repo's parity fixtures
 - **`lex.empty` is off.** The engine answers an empty source with
   `undefined` / `nil` before any rule runs; the plugin makes it an
   `unexpected` error like any other non-version.
-- **Error positions at a lookahead failure may differ between runtimes.**
-  `01.2.3` is rejected by both, with TS pointing at the `1` and Go at the
-  `0`. The code is the contract; the position is not (the parser repo's
-  `DIVERGENCE.md` records the general case). Fixtures pin
-  `ERROR:unexpected` only.
+- **Error positions at a lookahead failure are not the contract.**
+  `01.2.3` is rejected by both runtimes at the `0` today (column 1), and
+  `1.2.3-01` at the end of the input (column 9), but a column at a
+  lookahead failure is where the engine gave up, not a promise: it can
+  move with a compiler change and the two engines are not required to
+  agree (the parser repo's `DIVERGENCE.md` records the general case).
+  The code is the contract. Fixtures pin `ERROR:unexpected` only.
 - **The plugin compiles the grammar at install.** ~75 ms in TS, ~10 ms in
   Go; a parse is ~100 µs. Build one instance and reuse it. The Go `Parse`
   convenience caches one behind a mutex; the TS side has no convenience

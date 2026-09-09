@@ -130,7 +130,9 @@ c, err := tabnassemver.Compare(a, b) // -1, nil
 value: `semver: not a parsed version (want map[string]any)` for a
 non-map, `semver: prerelease is not a list`, or
 `semver: major: not a number: string` (likewise `minor`, `patch`,
-`prerelease`) when a component is neither `float64` nor `*big.Int`.
+`prerelease`) when a component is neither `float64` nor `*big.Int`, or
+`semver: major: not an integer: 1.5` when a fractional `float64` meets a
+`*big.Int` (two `float64` values compare without that check).
 
 ### `func Format(v any) (string, error)`
 
@@ -160,12 +162,14 @@ the plugin has no options. It mirrors `Semver.defaults` in TypeScript.
 
 The grammar as ABNF text — the same string the plugin compiles, which is
 [`semver-grammar.abnf`](../../semver-grammar.abnf) verbatim, comments
-included. Exported for tooling; the plugin compiles its own copy.
+included. Exported for tooling; it is the constant the plugin itself
+compiles (`Grammar = grammarText`), not a second copy.
 
 ### `const VERSION = "0.1.0"`
 
 The module's version. It equals `ts/package.json` `"version"` and the
-TypeScript `VERSION`; `version_test.go` fails on drift.
+TypeScript `VERSION`; `version_test.go` reads `ts/package.json` and fails
+(never skips) when this constant drifts from it.
 
 ### `const MaxSafeInteger = 1<<53 - 1`
 
@@ -203,7 +207,9 @@ grammar has already excluded a leading zero there. Any other identifier —
 one with a letter or hyphen anywhere in it, leading zeros included — is a
 `string`: `1.0.0-0.10.a1.1a.01a.-1` gives
 `[]any{float64(0), float64(10), "a1", "1a", "01a", "-1"}`. The
-distinction carries the specification's two comparison rules (§11.4).
+distinction carries the specification's kind-dependent comparison rules
+(§11.4.1–11.4.3): numeric identifiers compare numerically, alphanumeric
+ones in ASCII order, and a numeric one ranks below any alphanumeric one.
 
 **Build identifiers** are always strings, digits included: `1.0.0+001`
 gives `[]any{"001"}`. Build metadata takes no part in precedence and may
@@ -251,7 +257,7 @@ inline, and [concepts](concepts.md) covers why the compiler needs them.
 
 | Input | Value |
 |---|---|
-| `1.0.0` | `major` 1, `minor` 0, `patch` 0, `prerelease` `[]any{}`, `build` `[]any{}` |
+| `1.0.0` | `major` `float64(1)`, `minor` `float64(0)`, `patch` `float64(0)`, `prerelease` `[]any{}`, `build` `[]any{}` |
 | `1.0.0-alpha.1` | `prerelease` `[]any{"alpha", float64(1)}` |
 | `1.0.0-0.3.7` | `prerelease` `[]any{float64(0), float64(3), float64(7)}` |
 | `1.0.0-x.7.z.92` | `prerelease` `[]any{"x", float64(7), "z", float64(92)}` |
@@ -292,12 +298,12 @@ token and a character the grammar does not name has no matcher at all.
 **Four fixed tokens**, one per literal, named by the compiler in
 allocation order, and **three character-class tokens**, one per `%x`
 range, as anchored regular expressions on `spec.Options.Match.Token`,
-every one marked eager in `spec.Options.Match.TokenEager` so it can be
-lexed at any lookahead slot:
+each of the three marked eager in `spec.Options.Match.TokenEager` so it
+can be lexed at any lookahead slot (fixed tokens carry no such flag):
 
 | Token | Source | Role |
 |---|---|---|
-| `#0` | `0` | the digit zero, singled out by `numeric-identifier` and `pre-release-identifier` |
+| `#0` | `0` | the digit zero, singled out by `digit`, `numeric-identifier` and `pre-release-identifier` |
 | `#T` | `.` | separator |
 | `#T1` | `-` | opens the pre-release; also an identifier character |
 | `#T2` | `+` | opens the build metadata |
@@ -366,8 +372,11 @@ if te, ok := err.(*tabnas.TabnasError); ok {
 `err.Error()` renders the engine's multi-line message — the
 `[tabnas/unexpected]: unexpected character(s): v` header, the location
 `--> <no-file>:1:1`, the source line with a caret under the character,
-the hint, and an `--internal:` suffix naming the rule and token. The hint
-reads:
+the hint, and an `--internal:` suffix naming the rule and token. The text
+carries ANSI colour escapes unless the engine's `Options.Color.Active` is
+set to `false`. The hint, as the plugin registers it under
+`Hint["unexpected"]`, reads (`{src}` is replaced by the offending text in
+both `te.Hint` and the JSON `hint` below):
 
 ```
 The character(s) {src} do not match any rule alternative active at
@@ -439,6 +448,8 @@ library with the fleet's uniform five-symbol ABI (`tabnas_version`,
 `tabnas_grammar`, `tabnas_parse`, `tabnas_grammar_free`, `tabnas_free`):
 every call returns JSON, a rejection is an answer
 (`ok:true, accept:false` with the diagnostic above) rather than a
-failure, and handles are safe to use from several threads. See
+failure, a value with a `*big.Int` component is reported as `valueError`
+rather than as a rounded JSON number, and handles are safe to use from
+several threads. See
 [`clib/README.md`](../clib/README.md) for the contract, the build script
 and the header.

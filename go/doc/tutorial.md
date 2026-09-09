@@ -79,14 +79,17 @@ digits is *numeric* and comes back as a number; any other identifier is
 build identifiers are always strings. The distinction is the
 specification's own: it compares the two kinds of pre-release
 identifier differently (step 4), and build metadata takes no part in
-precedence at all. A type switch tells them apart:
+precedence at all. A type switch tells them apart (a numeric identifier
+larger than `MaxSafeInteger` is a `*big.Int` from `math/big`, like a
+large `major`):
 
 ```go
 m := v.(map[string]any)
 for _, id := range m["prerelease"].([]any) {
-	switch id := id.(type) {
-	case string:  // alphanumeric identifier, e.g. "alpha"
-	case float64: // numeric identifier, e.g. 1
+	switch id.(type) {
+	case string:   // alphanumeric identifier, e.g. "alpha"
+	case float64:  // numeric identifier, e.g. 1
+	case *big.Int: // numeric identifier above MaxSafeInteger
 	}
 }
 ```
@@ -158,9 +161,9 @@ argument is not a version value.
 ## 6. Handle an error
 
 Anything the specification does not allow is a parse error: a `v`
-prefix, a blank, a leading zero, an empty identifier, the empty string.
-Nothing is skipped or forgiven, so `Parse` returns `nil` and a non-nil
-error — never a panic:
+prefix, a blank, a leading zero on a numeric part, an empty identifier,
+the empty string. Nothing is skipped or forgiven, so `Parse` returns
+`nil` and a non-nil error — never a panic:
 
 ```go
 _, err := tabnassemver.Parse("v1.2.3")
@@ -195,8 +198,10 @@ if errors.As(err, &te) {
 its own, because the grammar is the sole judge of what a version is and
 every rejection is the same event — a character with no rule to match
 it. `Hint` is where a reader learns the rules; `err.Error()` puts it all
-together, beginning `[tabnas/unexpected]: unexpected character(s): v`
-and followed by the position, the source line and the hint. For logs,
+together as a multi-line message whose first line reads
+`[tabnas/unexpected]: unexpected character(s): v`, followed by the
+position, the source line and the hint (coloured with ANSI escapes
+unless the engine's colour option is turned off). For logs,
 `json.Marshal(err)` gives the structured diagnostic — `status`
 (`"failure"`), `code`, `message`, `hint`, `row`, `col` and more.
 

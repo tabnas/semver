@@ -34,8 +34,9 @@ build one instance and reuse it: `Make()` returns a bare engine with the
 plugin installed, and the package-level `Parse` keeps one such instance
 for the life of the process. Installing the plugin a second time on the
 same instance is a no-op — a `semver-init` decoration on the engine
-records that the work is done — and `perf_test.go` pins the
-reuse-versus-rebuild ratio.
+records that the work is done — and `perf_test.go` checks that the
+package-level `Parse` costs no more than a reused instance, which a
+rebuild-per-call regression would fail by a wide margin.
 
 ## The grammar is the parser
 
@@ -62,10 +63,10 @@ the `Grammar` constant for tooling.
 ### Two rewrites, one language
 
 The engine picks an alternative from a bounded lookahead of a few
-tokens — a character each — never by reading to the end of an
-identifier. Two of the specification's productions cannot be dispatched
-that way, so the file rewrites their *shape*; its comments show that
-the *language* is unchanged.
+tokens — a character each, and at most four for this grammar — never by
+reading to the end of an identifier. Two of the specification's
+productions cannot be dispatched that way, so the file rewrites their
+*shape*; its comments show that the *language* is unchanged.
 
 **`pre-release-identifier`.** The specification says
 `<alphanumeric identifier> | <numeric identifier>`. Both can begin with
@@ -109,7 +110,7 @@ tokens:
 | `"0"`, `"."`, `"-"`, `"+"` | fixed tokens `#0`, `#T`, `#T1`, `#T2` |
 | `%x31-39`, `%x41-5A`, `%x61-7A` | one regular-expression class token each, marked eager |
 | `*digit`, `[ … ]`, `1*identifier-character`, `( … )` | helper rules (`_gen5_star_digit`, `_gen13_opt__gen12_group`, …) |
-| an alternative with a reference in its middle | a head rule plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
+| an alternative with more than one rule reference | a head rule (`valid-semver$alt0`) plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …), one per further reference |
 | the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
 One character is one token, because the grammar names only single
@@ -123,17 +124,23 @@ parse.
 `github.com/tabnas/bnf/go` runs Paull's substitution over every
 production: an alternative that *begins* with a reference to another
 rule has that rule's alternatives inlined, recursively, which is what
-fills in the lookahead columns. Here that dissolves `version-core`,
-`major` and the `numeric-identifier` beneath them into `valid-semver` —
-the compiled `valid-semver` has two opening alternatives, one for a `0`
-and one for a positive digit, and pushes `minor` — and likewise the
-first `pre-release-identifier` into `pre-release` and the first
-`build-identifier` into `build`. The parse never pushes those rules, so
-they never get a node and never fire a lifecycle hook, while `minor`,
-`patch` and every identifier after the first do. So the parse tree is
-not the grammar tree, and which rules the compiler keeps is a property
-of the compiler, not of the specification; a value built by walking the
-tree would be coupled to that detail.
+fills in the lookahead columns. The one exemption is a pure alias — a
+production whose only alternative is a single reference, such as
+`major = numeric-identifier` or `semver = valid-semver` — which has
+nothing to dispatch between and is left to push its target. Here the
+substitution dissolves `version-core`, `major` and the
+`numeric-identifier` beneath them into `valid-semver`: the compiled
+`valid-semver` opens on a `0` or a positive digit directly, through two
+alternative chains (`valid-semver$alt0` and `valid-semver$alt1`) fanned
+out over lookahead rows of up to four tokens, and it is those chains
+that push `minor`. Likewise the first `pre-release-identifier` dissolves
+into `pre-release` (five chains, one per kind of first character) and
+the first `build-identifier` into `build`. The parse never pushes the
+dissolved rules, so they never get a node and never fire a lifecycle
+hook, while `minor`, `patch` and every identifier after the first do.
+So the parse tree is not the grammar tree, and which rules the compiler
+keeps is a property of the compiler, not of the specification; a value
+built by walking the tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
@@ -183,7 +190,9 @@ one reason. `AttachActions` turns `@semver:ac` into the engine's
 *first* hyphen: `@valid-semver-ac` was read as the phase `semver-ac`
 and threw at install. The Go engine never had that bug and would bind
 the hook on `valid-semver` directly; the alias is kept here so both
-runtimes compile the same grammar, and costs nothing.
+runtimes compile the same grammar, and costs nothing — the compiler's
+pure-alias exemption (above) is what leaves it standing as a rule of its
+own, with a node for the action to replace.
 
 ## The value decisions
 
@@ -269,7 +278,7 @@ The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
 the shared fixture `test/precedence/order.tsv`, which both runtimes
 check pairwise in both directions, so transitivity is pinned too;
-`equal.tsv` holds the pairs that differ only in build metadata.
+`equal.tsv` holds the pairs that differ at most in build metadata.
 
 ## Why every default lexer is off
 
@@ -286,8 +295,9 @@ the space, line, comment, string, number, text and value lexers;
 unbinds the six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`,
 `#CA`) by setting each to `nil` in `Fixed.Token`; and sets
 `Lex.Empty: &off`, so an empty source is a parse error rather than the
-engine's default answer of `nil`. What remains is exactly the grammar's
-seven tokens. A character the grammar does not name — a blank, a tab, a
+engine's default answer of `nil`. What remains, beyond the engine's own
+end-of-source and bad-character markers, is exactly the grammar's seven
+tokens. A character the grammar does not name — a blank, a tab, a
 newline, a quote, a `v` prefix — has no matcher at all and is rejected
 as `unexpected` at its position, never skipped, never swallowed. The
 punctuation is unbound rather than merely unused so that JSON's tokens
@@ -324,9 +334,10 @@ The position is where the grammar ran out of alternatives, which is not
 always where a human would point. `v1.2.3` fails at column 1 on the
 `v`; `1.2.3-01` fails at column 9, the end of the input, because `01`
 could still have become the alphanumeric identifier `01a` and only the
-end of the string settled it. At a lookahead failure the two runtimes
-may even differ: `01.2.3` is reported at the `0` here and at the `1` in
-TypeScript. The code is the contract; the position is not.
+end of the string settled it. `01.2.3` is reported at the `0` in both
+runtimes today, but at a lookahead failure the two engines are not
+required to agree, and a compiler change can move the column. The code
+is the contract; the position is not.
 
 ## Conformance
 
@@ -359,8 +370,9 @@ Everything the corpus pins that is worth reading is also committed as a
 shared fixture: `test/spec/*.tsv` holds the specification's own
 examples, the version core, pre-release and build identifiers, and the
 141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
-`Compare` chain and the equal pairs. Both runtimes auto-discover and run
-every file (`parity_test.go`, `precedence_test.go`). A new parse case
+`Compare` chain and the equal pairs. Both runtimes run every file —
+`parity_test.go` auto-discovers `test/spec`, `precedence_test.go` loads
+the two precedence files by name. A new parse case
 belongs there; the in-language suites keep only what a `.tsv` cannot
 express — `*big.Int` values, function results, error details.
 

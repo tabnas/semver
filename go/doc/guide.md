@@ -66,7 +66,7 @@ m := v.(map[string]any)
 major := m["major"].(float64)  // float64(2) — but see the *big.Int recipe
 pre := m["prerelease"].([]any) // []any{"rc", float64(3)}
 for _, id := range pre {
-    switch id := id.(type) {
+    switch id.(type) {
     case string:   // an alphanumeric identifier: "rc"
     case float64:  // a numeric identifier: 3
     case *big.Int: // a numeric identifier above 2^53 - 1
@@ -168,7 +168,7 @@ back to the text it came from:
 for _, s := range []string{"1.0.0-x-y-z.--", "1.0.0-alpha+001", "1.0.0+21AF26D3----117B344092BD"} {
     v, _ := tabnassemver.Parse(s)
     out, _ := tabnassemver.Format(v)
-    out == s // true, every time
+    fmt.Println(out == s) // true, every time
 }
 
 // A hand-built value works too, if it has the parsed shape.
@@ -186,7 +186,7 @@ checks shape, not grammar: `"a_b"` under `prerelease` renders as
 `1.0.0-a_b`, which `Parse` rejects — to be sure a hand-built value is a
 valid version, parse the formatted string back.
 
-## Handle integers beyond 2^53
+## Handle integers beyond 2^53 − 1
 
 The specification puts no upper bound on `MAJOR`, `MINOR`, `PATCH` or a
 numeric pre-release identifier. A component up to `MaxSafeInteger`
@@ -212,10 +212,11 @@ identifier is never converted: `1.0.0+9007199254740993` keeps
 
 ## Reuse a parser for many inputs
 
-Installing the plugin compiles the ABNF grammar (about 10 ms in Go); a
-parse takes about 100 µs. `Parse` hides the compile by keeping one
-instance, but it also serialises every caller through a mutex. For a hot
-loop on one goroutine, build your own instance with `Make` and reuse it:
+Installing the plugin compiles the ABNF grammar (on the order of 10 ms
+in Go); a parse takes on the order of 100 µs. `Parse` hides the compile
+by keeping one instance, but it also serialises every caller through a
+mutex. For a hot loop on one goroutine, build your own instance with
+`Make` and reuse it:
 
 ```go
 j := tabnassemver.Make() // *tabnas.Tabnas with the plugin installed
@@ -239,8 +240,10 @@ panic there means a broken build, never a bad input.
 ## Handle a parse error and read the diagnostic
 
 Every rejection is one error type and one code: a `*tabnas.TabnasError`
-whose `Code` is `"unexpected"`, raised at the first character the
-grammar has no rule for. The plugin declares no codes of its own (see
+whose `Code` is `"unexpected"`, raised where the grammar has no
+alternative for what comes next — usually at the offending character,
+though a lookahead failure can be reported earlier (`1.02.3` fails at
+column 1). The plugin declares no codes of its own (see
 [AGENTS.md](../../AGENTS.md), "Error codes"), so `Code` never says *why*
 a string was rejected — the position, the offending text and the hint
 do:
@@ -273,13 +276,15 @@ log, an API response or a tool. There `status` is always `"failure"`,
 `col` are 1-based, `pos` 0-based, `len` the length of the offending
 text. The empty string fails at row 1, column 1 with an empty `Src`;
 `v1.2.3` at column 1 with `Src` `"v"`. Only the code is guaranteed to
-match the TypeScript plugin's: at a lookahead failure the column may
-differ (`01.2.3` is reported at the `1` there and at the `0` here).
+match the TypeScript plugin's: `code` is the one cross-runtime field of
+the diagnostic, and at a lookahead failure the reported column is not
+guaranteed to agree between the two engines, so compare positions only
+within one runtime.
 
 ## Install the plugin on your own engine
 
-`Make` is only `tabnas.Make()` plus one `Use`. Do it yourself when you
-already have an engine in hand:
+`Make` is only `tabnas.Make()` plus one install call. Do it yourself
+when you already have an engine in hand:
 
 ```go
 import tabnas "github.com/tabnas/parser/go"
@@ -292,24 +297,27 @@ v, err := j.Parse("1.2.3")
 ```
 
 `j.UseDefaults(tabnassemver.Semver, tabnassemver.Defaults)` is the same
-thing spelled the way every tabnas plugin is installed; `Defaults` is an
-empty map because the plugin has no options — the grammar is the
-specification, and there is nothing to configure. Installing the plugin
-a second time on the same instance is a no-op, not a second grammar.
+thing spelled the way every tabnas plugin is installed, and is what
+`Make` itself calls; `Defaults` is an empty map because the plugin has
+no options — the grammar is the specification, and there is nothing to
+configure. Installing the plugin a second time on the same instance is
+a no-op, not a second grammar.
 
 The plugin installs the specification's grammar and, on the same spec,
 switches every default lexer off (whitespace, line ends, comments,
-strings, numbers, bare words, keyword values) and unbinds the engine's
-JSON punctuation tokens, so the instance parses versions and nothing
-else. Do not turn any of those back on — it would then accept strings
-the specification rejects.
+strings, numbers, bare words, keyword values), unbinds the engine's
+JSON punctuation tokens (`{ } [ ] : ,`) and turns `lex.empty` off, so
+the instance parses versions and nothing else — not even the empty
+string, which is an error rather than `nil`. Do not turn any of those
+back on — it would then accept strings the specification rejects.
 
 ## Get the grammar text
 
-The ABNF the plugin compiles is exported verbatim as `Grammar`, a string
-constant with the same text as
+The ABNF the plugin compiles is exported as `Grammar`, a string constant
+holding the text of
 [`semver-grammar.abnf`](../../semver-grammar.abnf) at the repository
-root:
+root, embedded at build time (the literal opens with one newline, so the
+first line printed is blank):
 
 ```go
 fmt.Print(tabnassemver.Grammar)

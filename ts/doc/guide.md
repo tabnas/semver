@@ -45,14 +45,17 @@ accepted and changes nothing.
 
 Build the instance once and keep it, as a module-level constant.
 Installing the plugin compiles the ABNF grammar into the engine's rule
-set, which takes about 75 ms; a parse takes about 100 µs.
+set, which takes tens of milliseconds (roughly 75 ms, machine
+dependent); a parse takes about 100 µs, a thousand times less.
 
 ## Validate a string without using the value
 
-There is no boolean API: `tn.parse` returns the value or throws. Wrap
-it, and test the error's `code` — every rejection is the engine's
-`unexpected` code, so anything else is a bug worth rethrowing, not an
-invalid version.
+There is no boolean API: given a string, `tn.parse` returns the value
+or throws. Wrap it, and test the error's `code` — every rejection is
+the engine's `unexpected` code, so anything else is a bug worth
+rethrowing, not an invalid version. Check the type first: the engine
+parses strings only and hands any other value back untouched
+(`tn.parse(123)` is `123`), which is not a rejection.
 
 ```js
 import { Tabnas } from '@tabnas/parser'
@@ -61,6 +64,7 @@ import { Semver } from '@tabnas/semver'
 const tn = new Tabnas().use(Semver)
 
 function isSemver(text) {
+  if ('string' !== typeof text) return false
   try {
     tn.parse(text)
     return true
@@ -76,12 +80,16 @@ isSemver('v1.2.3') // => false
 isSemver('') // => false
 isSemver('1.2.3 ') // => false
 isSemver('1.2.3-01') // => false
+isSemver(123) // => false
+isSemver(undefined) // => false
 ```
 
-The plugin never trims: a leading or trailing blank or a newline is
-rejected like any other character. If the text comes from a file or a
-command line that may carry one, `text.trim()` before parsing is your
-decision, not the parser's.
+The plugin never trims — every default engine lexer (whitespace, line
+ends, comments, strings, numbers, bare words) is switched off — so a
+leading or trailing blank, a tab or a newline is rejected like any
+other character. If the text comes from a file or a command line that
+may carry one, `text.trim()` before parsing is your decision, not the
+parser's.
 
 ## Split a version into its parts
 
@@ -109,9 +117,10 @@ tn.parse('1.0.0-beta.11').prerelease.map((id) => typeof id) // => ['string', 'nu
 tn.parse('1.0.0-alpha+001').build // => ['001']
 ```
 
-A pre-release identifier that is all digits comes back as a number and
-any other as a string, because the specification compares the two
-kinds differently; `typeof` tells them apart. Build identifiers are
+A pre-release identifier that is all digits comes back as a number
+(a `bigint` past 2^53 − 1, see below) and any other as a string,
+because the specification compares the two kinds differently;
+`'string' === typeof id` tells them apart. Build identifiers are
 always strings, leading zeros included, since they take no part in
 precedence.
 
@@ -231,7 +240,7 @@ try { tn.parse(risky) } catch (err) { valid = false }
 valid // => false
 ```
 
-## Handle integers beyond 2^53
+## Handle integers beyond 2^53 − 1
 
 The specification puts no upper bound on an integer. `major`, `minor`,
 `patch` and a numeric pre-release identifier are a `number` up to
@@ -279,15 +288,19 @@ JSON.stringify(v, asDigits) // => '{"major":"9007199254740992","minor":0,"patch"
 
 ## Read a structured diagnostic
 
-The thrown error is a `SyntaxError` carrying `code`, `lineNumber`,
-`columnNumber` and a multi-line `message` that includes the plugin's
-hint about what a version has to look like. For a machine-readable
+The thrown error is the engine's `TabnasError`, a `SyntaxError`
+subclass, carrying `code`, `lineNumber`, `columnNumber` and a
+multi-line `message` that includes the plugin's hint about what a
+version has to look like. For a machine-readable
 report, `JSON.stringify` the error: the result has `status`, `code`,
 the one-line `message`, the `hint`, the position as `row`, `col`,
 `pos` and `len`, the input as `src`, and the grammar `rule` that was
 active at the failure (which may be a compiler-generated helper name).
-The position is the first character the grammar could not place — for
-`'1.2.3 '` that is the trailing blank at column 6.
+The position is where the engine gave up: usually the first character
+the grammar could not place — for `'1.2.3 '` the trailing blank at
+column 6 — but a failure caught on lookahead can be reported earlier
+(`01.2.3` at the `0`), and an identifier cut short at the end of
+the input (`1.2.3-01`, with `len` 0).
 
 ```js
 import { Tabnas } from '@tabnas/parser'
@@ -322,15 +335,20 @@ col // => 6
 ```
 
 There are no plugin-specific error codes: `unexpected` is the code for
-every rejection, so branch on the position and the input, not on the
-code. Treat `src` and every identifier in a value as untrusted text —
-see [AGENTS.md](../../AGENTS.md#untrusted-input).
+every rejection, so if you must tell rejections apart, look at the
+input and the position, not the code — and treat the position as a
+diagnostic, not a contract: at a lookahead failure it is an engine
+detail, and the Go port may report a different column for the same
+string. Treat `src` and every identifier in a value as untrusted
+text — see [AGENTS.md](../../AGENTS.md#untrusted-input).
 
 ## Get the ABNF text for tooling
 
 The `grammar` export is the RFC 5234 ABNF the plugin compiles at
 install time — the repository's [`semver-grammar.abnf`](../../semver-grammar.abnf),
-comments included, embedded verbatim. `VERSION` is the package version.
+comments included, embedded verbatim (the export carries one extra
+leading newline, from the template literal it lives in). `VERSION` is
+the package version.
 
 ```js
 import { grammar, VERSION } from '@tabnas/semver'
@@ -347,9 +365,10 @@ productions.includes('pre-release-identifier') // => true
 
 Write it out for any tool that reads ABNF, or hand it to
 `@tabnas/abnf` yourself — `abnfConvert(grammar, { start: 'semver', tag: 'semver' })`
-is the compile step the plugin performs, before it adds its one action
-and switches the engine's default lexers off (the
-[concepts](concepts.md) page has the details):
+is the compile step the plugin performs, before it adds its one action,
+switches every default lexer off, unbinds the engine's JSON punctuation
+tokens and refuses the empty string (the [concepts](concepts.md) page
+has the details):
 
 ```js
 import { writeFileSync } from 'node:fs'

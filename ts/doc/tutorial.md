@@ -39,8 +39,9 @@ tn.parse('1.2.3') // => { major: 1, minor: 2, patch: 3, prerelease: [], build: [
 ```
 
 Installing the plugin compiles the grammar into the engine's rule set,
-which takes about 75 ms; a parse then takes about 100 µs. Build the
-instance once and keep it rather than creating one per parse. The
+which takes on the order of a hundred milliseconds; a parse then takes
+on the order of a hundred microseconds, a thousand times less. Build
+the instance once and keep it rather than creating one per parse. The
 plugin has no options, so `use(Semver)` is the whole configuration.
 
 ## 3. Read the five parts
@@ -88,8 +89,8 @@ tn.parse('1.0.0-x.7.z.92').prerelease // => ['x', 7, 'z', 92]
 tn.parse('1.0.0-alpha+001').build // => ['001']
 ```
 
-Look at the two `1`s. In the pre-release part, an identifier made only
-of digits is *numeric* and becomes a number — the specification
+Look at the `1` and the `'5'`. In the pre-release part, an identifier made
+only of digits is *numeric* and becomes a number — the specification
 compares numeric identifiers numerically, so the value keeps the
 distinction — while an identifier containing a letter or a hyphen is
 *alphanumeric* and stays a string. Build identifiers are always

@@ -75,9 +75,9 @@ tn.parse('1.2.3-alpha.1+build.5') // => { major: 1, minor: 2, patch: 3, prerelea
 ### `engine.use(Semver, options?)`
 
 Registers and immediately applies the plugin. Returns the engine, so
-registrations chain. `options` is optional and, when given, must be
-`{}` (see [Options](#options)). Installing compiles the embedded ABNF
-(`grammar`) with `@tabnas/abnf` — start rule `semver`, group tag
+registrations chain. `options` is optional and unused: the plugin
+reads no option (see [Options](#options)). Installing compiles the
+embedded ABNF (`grammar`) with `@tabnas/abnf` — start rule `semver`, group tag
 `semver` — into the engine's rule set, attaches the one semantic action
 (an after-close hook on `semver`, `@semver:ac`, which replaces the parse
 tree with the `Version` built from the accepted text), applies the lexer
@@ -94,9 +94,12 @@ the empty string included, throws (see [Errors](#errors)).
 
 ## Options
 
-There are none. `SemverOptions` is `Record<string, never>`, so
-`tn.use(Semver, {})` type-checks and any key is a type error;
-`Semver.defaults` is `{}`.
+There are none. `SemverOptions` is `Record<string, never>`: a value
+annotated with it can only be `{}`, and `Semver.defaults` is `{}`. The
+engine's `use` types its second argument as `Record<string, any>` (and
+the engine's `Plugin` signature types it `any`), so a stray key in
+`tn.use(Semver, { ... })` is not a compile-time error; the plugin
+ignores whatever options object it is given.
 
 ## The value
 
@@ -208,9 +211,11 @@ compare(tn.parse('2.1.1'), tn.parse('2.1.0')) // => 1
 The specification's own chain holds in full: `1.0.0-alpha` <
 `1.0.0-alpha.1` < `1.0.0-alpha.beta` < `1.0.0-beta` < `1.0.0-beta.2` <
 `1.0.0-beta.11` < `1.0.0-rc.1` < `1.0.0`, and `1.0.0` < `2.0.0` <
-`2.1.0` < `2.1.1`. `compare` is a total order over versions and can be
-passed to `Array.prototype.sort` as is. It does not validate its
-arguments: pass values that came from `parse` or that satisfy `Version`.
+`2.1.0` < `2.1.1`. `compare` is a consistent comparator — a total
+preorder, since versions that differ only in build metadata compare
+`0` — and can be passed to `Array.prototype.sort` as is. It does not
+validate its arguments: pass values that came from `parse` or that
+satisfy `Version`.
 
 ## format
 
@@ -242,10 +247,13 @@ format({ major: 1n, minor: 0, patch: 0, prerelease: ['rc', 1n], build: ['a'] }) 
 const grammar: string
 ```
 
-The complete text of [`semver-grammar.abnf`](../../semver-grammar.abnf),
-comments included, exactly as the plugin compiles it. It is exported for
-tooling (documentation, railroad diagrams, a second compiler); the plugin
-itself reads the embedded copy, so changing this string changes nothing.
+The text of [`semver-grammar.abnf`](../../semver-grammar.abnf),
+comments included, exactly as the plugin compiles it: the embedded copy
+is the file's content preceded by one newline (`grammar === '\n' +
+file`). It is exported for tooling (documentation, railroad diagrams, a
+second compiler); it is a plain string constant, not a hook — the plugin
+compiles the same embedded literal and reads nothing back from the
+export.
 
 ```js
 import { grammar, VERSION } from '@tabnas/semver'
@@ -332,8 +340,9 @@ character-class tokens eager, which is what lets the letter in
 identifier) be lexed after a digit run. The plugin sets the flag itself
 after compiling, so an isolated `npm install` from the registry accepts
 them as the grammar says; the upstream fixes and the reason the port is
-enough for this grammar are in [`AGENTS.md`](../../AGENTS.md), "The
-tabnas engine dependency".
+enough for this grammar are in
+[concepts](concepts.md#a-note-on-two-toolchain-fixes) and in
+[`AGENTS.md`](../../AGENTS.md), "The tabnas engine dependency".
 
 ## Tokens
 
@@ -383,7 +392,9 @@ code // => 'unexpected'
 ```
 
 `engine.options(...)` returns the merged options object, not the
-engine. The plugin adds nothing to any other group.
+engine. The one alternative in any other group is the compiler's
+end-of-source alternative on its `__start__` wrapper, tagged
+`semver,end`.
 
 ## Errors
 
@@ -397,7 +408,11 @@ next character. Fields on the thrown object:
 | `code` | `string` | Always `'unexpected'`. |
 | `lineNumber` | `number` | Line of the offending character, 1-based. |
 | `columnNumber` | `number` | Column of the offending character, 1-based. |
-| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, then the hint. ANSI-coloured by default; the engine option `color: { active: false }` turns colour off. |
+| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
+
+The engine also sets `fileName` (`undefined` here), `details` and `meta`
+(both `{}` here) and a `txts` accessor on the object; the JSON form
+below is the structured shape.
 
 `JSON.stringify(err)` gives the structured diagnostic:
 
@@ -410,9 +425,9 @@ next character. Fields on the thrown object:
 | `row`, `col` | Position of the offending character, 1-based. |
 | `pos` | Offset of the offending character, 0-based. |
 | `len` | Length of the offending text (`0` when the input ended too early). |
-| `rule` | The rule active at the failure. |
+| `rule` | The rule active at the failure — often one of the compiler's helper rules (`_gen48_star_digit`, say) or its `__start__` wrapper. |
 | `ruleStack` | The rule names from `__start__` down to `rule`. |
-| `token` | `{ name, src }`: the token the lexer produced and its source text. |
+| `token` | `{ name, src }`: the token the lexer produced and its source text. When the input ended too early it is the end token `#ZZ` with `src` `''` (the empty string reports an empty `name` too). |
 | `expected` | The token names the active rule could have accepted. |
 | `src` | The source text. |
 | `plugins` | `['Semver']`. |
@@ -466,22 +481,20 @@ The code is the contract; the position is not. At a lookahead failure
 may move with a compiler change; the shared fixtures pin
 `ERROR:unexpected` only.
 
-There are **no plugin-specific error codes**, deliberately. The grammar
-is the sole acceptor, and the ABNF compiler offers no safe place for an
-error production: a trap alternative in a leading position is inlined by
-the compiler's substitution pass, and a nullable one inlined there would
-change the accepted language rather than merely label a rejection. A
-code that could only be raised from some positions would be worse than
-none, so every rejection is the engine's base `unexpected` and the hint
-carries the explanation. `tabnas.plugin.json` lists an empty
-`errorCodes`; [`AGENTS.md`](../../AGENTS.md) records the decision.
+There are **no plugin-specific error codes**: every rejection is the
+engine's base `unexpected`, and the hint carries the explanation.
+`tabnas.plugin.json` lists an empty `errorCodes`. The reason — the
+grammar is the sole acceptor, and the ABNF compiler offers no safe place
+for an error production — is in
+[concepts](concepts.md#why-there-are-no-error-codes) and in
+[`AGENTS.md`](../../AGENTS.md), "Error codes".
 
 ## Performance
 
 Installing the plugin compiles the ABNF into the engine's rule set (150
-rules): about 75 ms. A parse on an installed engine is on the order of
-100 µs. The two differ by roughly three orders of magnitude, so build
-one instance — at module load, say — and reuse it for every parse; the
-instance holds no per-parse state. There is no module-level cached
-instance and no convenience `parse()` in this package; the engine is
-yours to build and keep.
+rules): roughly 50–75 ms on a typical machine. A parse on an installed
+engine is on the order of 100 µs. The two differ by roughly three
+orders of magnitude, so build one instance — at module load, say — and
+reuse it for every parse; the instance holds no per-parse state. There
+is no module-level cached instance and no convenience `parse()` in this
+package; the engine is yours to build and keep.
