@@ -105,17 +105,20 @@ This repo sits **on the ABNF compiler**, not on jsonic: `@tabnas/abnf`
 proxy; there are no `file:` paths and no `replace` directives.
 
 - TypeScript: `@tabnas/abnf` and `@tabnas/parser` are `peerDependencies`
-  in `ts/package.json` (deliberately `">=0"`, the fleet convention), each
-  mirrored as a `"*"` devDependency. `@tabnas/debug` and `@tabnas/support`
-  are dev-only.
+  in `ts/package.json`, each mirrored as a `"*"` devDependency.
+  `@tabnas/debug` and `@tabnas/support` are dev-only. The ranges are
+  floors, not the fleet's bare `">=0"`: `@tabnas/abnf` `>=0.4.8` and
+  `@tabnas/parser` `>=0.9.1` are the first releases on which the whole
+  toolchain agrees about a character class beside a literal (see below),
+  and abnf 0.4.8 in turn floors `@tabnas/bnf` at 0.1.11.
 - Go: `go/go.mod` `require`s `github.com/tabnas/abnf/go`,
   `github.com/tabnas/parser/go` and `github.com/tabnas/support/go` at the
   versions pinned there.
 
 **The TypeScript toolchain had two defects that this plugin's oracle
-corpus found.** Both were already right in the Go port, and both are fixed
-upstream (in review on the same branch name), but not necessarily in a
-published version yet:
+corpus found.** Both were already right in the Go port, and both are now
+fixed and published — `@tabnas/bnf` 0.1.11 and `@tabnas/parser` 0.9.1,
+which the peer floors above require:
 
 1. `@tabnas/bnf` — character-class tokens are marked eager, so a class can
    be lexed at any lookahead slot
@@ -137,13 +140,21 @@ pairwise disjoint, so no character can be lexed two ways and token order
 cannot matter. So an isolated `npm install` against the published
 `@tabnas/bnf` 0.1.10 / `@tabnas/parser` 0.9.0 passes the whole TS suite,
 oracle corpus included, and so does the fleet layout with the fixed
-siblings linked. Keep the port until a published `@tabnas/bnf` sets the
-flag and the peer range is raised past it; then delete the loop and the
-test that pins it. That may be a while: a later review of the ABNF
-compiler found that marking every class eager imports a Go defect into
-TypeScript (a class that overlaps a fixed literal, `digit = %x30-39`
-beside `"0"`, then steals the literal's cut), so tabnas/bnf#33 is on
-hold. **This grammar is immune by construction** — `digit = "0" /
+siblings linked. **The condition for deleting the port is now met**:
+`@tabnas/bnf` 0.1.11 sets the flag, and the floors above require it
+transitively, so the loop and the test that pins it (`marks every
+character-class token eager`) can go in a change of their own — kept
+here only because a release is the wrong place to remove a safety net.
+Removing it needs the oracle corpus green in both runtimes, nothing
+more.
+
+The reason bnf's change took a second engine fix to be safe is worth
+keeping in mind before copying any of this: marking every class eager
+imports a Go defect into TypeScript wherever a class overlaps a fixed
+literal (`digit = %x30-39` beside `"0"`, where the class then steals the
+literal's cut). parser 0.9.1 closes that by letting an expected literal
+beat an eager matcher it cannot out-cut. **This grammar is immune by
+construction either way** — `digit = "0" /
 positive-digit` with `positive-digit = %x31-39`, so no class contains a
 literal — which is why the port is safe here and why the whole oracle
 corpus passes with it. Do not copy the loop into a plugin whose classes
