@@ -112,10 +112,10 @@ proxy; there are no `file:` paths and no `replace` directives.
   `github.com/tabnas/parser/go` and `github.com/tabnas/support/go` at the
   versions pinned there.
 
-**The TypeScript side needs two toolchain fixes that shipped with this
-plugin.** Both were found by the oracle corpus, both were already right in
-the Go port, and both are on `main` of their repos (or in review) but not
-necessarily in a published version yet:
+**The TypeScript toolchain had two defects that this plugin's oracle
+corpus found.** Both were already right in the Go port, and both are fixed
+upstream (in review on the same branch name), but not necessarily in a
+published version yet:
 
 1. `@tabnas/bnf` — character-class tokens are marked eager, so a class can
    be lexed at any lookahead slot
@@ -129,13 +129,21 @@ necessarily in a published version yet:
    Go engine always has. Without it an eager class
    earlier in token order steals a character an expected class needed.
 
-Until those are published, an isolated `npm install` against the registry
-gets the old behaviour and `oracle.test.ts` goes red on exactly those
-strings; the fleet layout (siblings linked into `node_modules`) gets the
-fixed behaviour. The Go module is unaffected. The same parser change
-also lets `@<rule>-<phase>` lifecycle hooks bind on hyphenated rule names
-in TypeScript; this plugin does not depend on that (see the gotchas). The
-shapes are pinned for both runtimes in the abnf repo's parity fixtures
+**The plugin does not wait for them.** `src/semver.ts` carries fix 1
+itself: after `abnfConvert` it marks every match token in the compiled
+spec `eager$`, a no-op once the emitter sets the flag. Fix 2 is not needed
+by this grammar: its three character classes and four literals are
+pairwise disjoint, so no character can be lexed two ways and token order
+cannot matter. So an isolated `npm install` against the published
+`@tabnas/bnf` 0.1.10 / `@tabnas/parser` 0.9.0 passes the whole TS suite,
+oracle corpus included, and so does the fleet layout with the fixed
+siblings linked. Keep the port until a `@tabnas/bnf` that sets the flag
+is published and the peer range is raised past it; then delete the loop
+and the test that pins it. The Go module never needed either fix. The
+same parser change also lets `@<rule>-<phase>` lifecycle hooks bind on
+hyphenated rule names in TypeScript; this plugin does not depend on that
+(see the gotchas). The shapes are pinned for both runtimes in the abnf
+repo's parity fixtures
 ([tabnas/abnf#54](https://github.com/tabnas/abnf/pull/54)).
 
 **Two dev models:**
@@ -348,9 +356,16 @@ dependency list and clib name; session credentials cannot write that
 directory (ADR-8), so the corrected files are **staged in
 [`ci/workflows/`](ci/workflows/)** for a maintainer to promote. Until
 `ci.yml` is promoted with `deps: "parser support bnf abnf debug"`, CI
-resolves `@tabnas/bnf` and `@tabnas/abnf` from the registry and the TS
-oracle suite is red on the strings named under the engine dependency
-above.
+resolves `@tabnas/bnf` and `@tabnas/abnf` from the registry instead of
+the sibling `main` checkouts the fleet convention links. The suite passes
+either way (see the engine dependency above), but a change on a sibling's
+`main` is not exercised here until it is published.
+
+The repository's CodeQL default setup (the `Code Quality` runs, not a
+workflow file) still analyses Python. The scaffold's only Python, the ZON
+corpus tooling, is gone, so its `Analyze (python)` job fails with "no
+source code seen". Drop Python from the default setup's languages in
+the repository's code-security settings; nothing in the tree can fix it.
 
 ## Agent tooling
 

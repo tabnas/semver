@@ -198,6 +198,23 @@ const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
   // splitting at the first hyphen).
   const spec = abnfConvert(grammarText, { start: 'semver', tag: 'semver' })
 
+  // Every character class must be lexable at any lookahead slot. The
+  // engine gates match tokens on a per-rule collated column that is
+  // path-blind: the `*digit` helper peeks two digits, so at its second
+  // slot only a digit is expected, and the letter that ends `01a` or `12a`
+  // lexed as a fatal bad token there. Marking a class `eager$` is the
+  // opt-out; @tabnas/bnf does it for every class since tabnas/bnf#33 (the
+  // Go emitter always did), and this loop is that change ported here so
+  // the plugin is correct on the published compiler too — it is a no-op
+  // once the emitter already set the flag. Safe for this grammar under
+  // either lexer generation because its three classes and four literals
+  // are pairwise disjoint: no character can be cut two ways.
+  const tokens: Record<string, RegExp & { eager$?: boolean }> =
+    (spec.options && spec.options.match && spec.options.match.token) || {}
+  for (const name of Object.keys(tokens)) {
+    if (tokens[name] instanceof RegExp) tokens[name].eager$ = true
+  }
+
   // The single semantic action. When `semver` closes, its node's `src` is
   // the text every terminal under it matched — with every default lexer
   // off (below) that is the whole input, character for character — and
@@ -395,10 +412,10 @@ Semver.defaults = {} as SemverOptions
 // The grammar, as ABNF text — the same text the plugin compiles.
 const grammar: string = grammarText
 
-export { Semver, compare, format, grammar, VERSION }
-export type { SemverOptions, Version, PrereleaseIdentifier, SemverNumber }
-
 // VERSION is this package's version. It MUST equal package.json "version":
 // the release orchestrator rewrites both, and the version test fails the
 // build if they drift. Mirrors `const VERSION` in go/semver.go.
 const VERSION = '0.1.0'
+
+export { Semver, compare, format, grammar, VERSION }
+export type { SemverOptions, Version, PrereleaseIdentifier, SemverNumber }

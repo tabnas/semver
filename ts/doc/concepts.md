@@ -1,164 +1,388 @@
 # Concepts
 
-Background on how the ZON plugin is put together, and why. This is
+Background on how the semver plugin is put together, and why. This is
 understanding-oriented reading — for steps see the
 [tutorial](tutorial.md) and [how-to guide](guide.md), and for exact
-signatures and syntax see the [reference](reference.md).
+signatures, the value shape and the complete accepted syntax see the
+[reference](reference.md).
 
 ## A grammar plugin on a shared engine
 
-The plugin has no parser of its own. It is a thin layer on a stack of
-three pieces:
+The plugin has no parser of its own. It sits at the top of a stack of
+four pieces:
 
-- the **Tabnas engine** (`@tabnas/parser`) — a rule-based parser over a
-  configurable, matcher-based lexer,
-- the **relaxed-JSON grammar** (`@tabnas/jsonic`) — the rules and
-  helper actions (`@array$`, the `val`/`map`/`list`/`pair`/`elem` rule
-  set) that turn tokens into objects and arrays, and
-- **this plugin** (`@tabnas/zon`) — the option overrides, custom lex
-  matchers, and small grammar overlay that retune that stack to read
-  Zig anonymous-struct syntax instead of JSON.
+- the **Tabnas engine** (`@tabnas/parser`) — a configurable lexer under
+  a rule-and-alternative parser, driven by the grammar it is handed;
+- the **notation-neutral compiler** (`@tabnas/bnf`) — turns a grammar
+  into the engine's rule set without knowing which notation it was
+  written in;
+- the **ABNF front end** (`@tabnas/abnf`) — reads RFC 5234 ABNF and
+  drives that compiler; the plugin calls its `abnfConvert` and
+  `attachActions`;
+- **this plugin** (`@tabnas/semver`) — the grammar text, one semantic
+  action, and a set of engine options.
 
-Because the engine is configuration-driven, ZON support is mostly an
-options change plus a handful of alternates — not a new parser. The
-plugin embeds the canonical grammar text (from the repo-root
-`zon-grammar.jsonic`) as a string, parses it with a throwaway jsonic
-instance to get a grammar object, attaches its option overrides to that
-object, and hands the whole thing to the engine atomically via
-`tn.grammar(grammarDef, { rule: { alt: { g: 'zon' } } })`.
+Install is where the work happens. `new Tabnas().use(Semver)` compiles
+the ABNF into a rule set (about 75 ms), attaches the action, sets the
+options on the compiled spec and hands the whole thing to the engine in
+one `tn.grammar(spec)` call, so grammar and options arrive together. A
+parse afterwards costs about 100 µs — which is why every document here
+says to build one instance and reuse it. The instance keeps no state
+between parses, and `perf.test.ts` pins the reuse-versus-rebuild ratio.
 
-## ZON is not a superset of JSON
+## The grammar is the parser
 
-JSON and ZON share scalars but differ in structure:
+The specification publishes its grammar in BNF. `semver-grammar.abnf`
+at the repository root is that grammar transcribed into RFC 5234 ABNF,
+one production per production, with the specification's names kept and
+its spaces written as hyphens, so `<version core>` is `version-core`:
 
-| | JSON / jsonic | ZON |
-|---|---|---|
-| Open a map | `{` | `.{` (followed by `.field =`) |
-| Open a list | `[` | `.{` (otherwise) |
-| Close | `}` / `]` | `}` |
-| Key/value separator | `:` | `=` |
-| Keys | strings | `.identifier` |
-| Strings | `"` `'` `` ` `` | `"` only |
-| Comments | `#` `//` `/* */` | `//` only |
+```abnf
+semver       = valid-semver
+valid-semver = version-core [ "-" pre-release ] [ "+" build ]
+version-core = major "." minor "." patch
+pre-release  = pre-release-identifier *( "." pre-release-identifier )
+build        = build-identifier *( "." build-identifier )
+```
 
-The plugin makes those swaps by **disabling** what JSON allows and
-**adding** what ZON needs, rather than accepting both. That is a
-deliberate choice: a `build.zig.zon` file that accidentally used JSON
-braces should be a clear error, not a silent success.
+Nothing in the plugin's code decides what a valid version is: the
+grammar accepts or rejects, and code runs only after it has accepted.
+The file is single-sourced — `embed-grammar.js` copies it verbatim into
+`src/semver.ts` and into the Go port at build time — and the same text
+is exported as `grammar` for tooling.
 
-## The four mechanisms
+### Two rewrites, one language
 
-The plugin reshapes the stack with four cooperating mechanisms, all
-applied together through one `GrammarSpec`:
+The engine picks an alternative from a bounded lookahead of a few
+tokens — a character each — never by reading to the end of an
+identifier. Two of the specification's productions cannot be dispatched
+that way, so the file rewrites their *shape*; its comments show that
+the *language* is unchanged.
 
-1. **Custom lex matchers** own the `.`-prefixed and Zig-specific
-   tokens. They run ahead of the fixed-token matcher (high `order`
-   values) so they reliably claim their input:
-   - `.{` peeks ahead and emits `#OB` (struct) when followed by
-     `<ws>.ident<ws>=`, or `#OS` (tuple) otherwise.
-   - `.identifier`, and `.@"any name"`, emit `#TX` whose `val` is the
-     name with the dot stripped, and whose `use.zonEnum` flag marks it
-     for optional enum-tag wrapping.
-   - `\\`-prefixed lines emit one `#ST` string token with the joined
-     content. Zig lexes the whole run as one token, so blank lines
-     inside it continue the literal.
-   - char literals (`'x'`, `'\n'`, `'\xNN'`, `'\u{...}'`) emit a `#NR`
-     number token whose value is a one-char string or the code point,
-     per `charAsNumber`.
-   - numeric literals emit `#NR` from a matcher that reproduces Zig's
-     literal grammar exactly — jsonic's own number lexer is switched
-     off, because relaxed-JSON numbers (`+1`, `.5`, `0123`, `1__0`) are
-     not ZON numbers.
-   - `//!` and `///` fail the lex: they are Zig doc comments, which ZON
-     rejects.
+**`pre-release-identifier`.** The specification says
+`<alphanumeric identifier> | <numeric identifier>`. Both can begin with
+a digit — `1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
+nothing at all — and telling them apart may need every character of the
+identifier. The grammar factors on the first character instead:
 
-2. **Token remapping.** `#CL` is rebound from `:` to `=`; the default
-   char mappings for `#OB`, `#OS`, and `#CS` are dropped to `null`, so
-   a stray `{`, `[`, or `]` produces a syntax error instead of silently
-   opening a structure. The default jsonic text matcher is turned off,
-   since identifiers only ever appear as `.ident` / `.@"..."` and are
-   owned by the custom matcher.
+```abnf
+pre-release-identifier = "0" [ *digit alphanumeric-tail ]
+                       / positive-digit *digit [ alphanumeric-tail ]
+                       / alphanumeric-tail
+alphanumeric-tail      = non-digit *identifier-character
+```
 
-3. **Key-set restriction.** The `KEY` token set is narrowed to `#TX`
-   alone, so only an identifier (not a number or a quoted string) can
-   sit on the left of `=`.
+A lone `0` is the numeric identifier zero; `0` followed by more digits
+is valid only if a non-digit eventually arrives (`007a`); a positive
+digit starts a numeric identifier that becomes alphanumeric if a
+non-digit follows; anything else must be a non-digit. The union of the
+three is exactly alphanumeric ∪ numeric, and what it excludes is exactly
+a digit string with a leading zero — which the specification excludes
+too.
 
-4. **Grammar overlay.** A few alternates are prepended to `val`,
-   `list`, `elem`, and `pair`, plus a before-close guard on `pair` that
-   rejects a repeated field name (Zig does too). They swap the list terminator from the
-   default `#CS` to `#CB`, seed the list node with `@array$`, and
-   accept a trailing comma before `}`. This is the only part written in
-   grammar text; everything else is options.
+**`build-identifier`.** The specification says
+`<alphanumeric identifier> | <digits>`: a non-empty identifier string
+with a non-digit in it, or one without. Their union is every non-empty
+identifier string, so the grammar writes `1*identifier-character`, and
+`001` is a valid build identifier, zeros and all.
 
-The `{ rule: { exclude: 'jsonic,imp' } }` override also removes
-jsonic's implicit maps/lists, top-level commas, and path-dive
-extensions, and `{ rule: { start: 'val' } }` makes a single value the
-entry rule.
+Neither rewrite is an approximation, and the conformance corpus (below)
+checks that against an independent judge on every run.
 
-## Struct vs tuple disambiguation
+## What the compiler makes of it
 
-ZON uses one opener, `.{`, for both maps and lists. The engine's parser
-allows only two tokens of lookahead, which is not enough to tell a
-struct from a tuple by grammar alone (you would have to see an
-arbitrary distance ahead to find the first `=`).
+`abnfConvert(grammar, { start: 'semver', tag: 'semver' })` returns a
+spec holding the engine's rule set and the options it needs — for this
+grammar, 150 rules over seven tokens:
 
-So the decision is pushed down into the lexer. When the `.{` matcher
-fires, it scans past the opening brace, whitespace, and `//` comments,
-then checks for `.ident` followed by `=`. If found, it emits `#OB`
-(struct); otherwise `#OS` (tuple). The grammar therefore only ever sees
-an already-classified open token, and a two-token-lookahead rule set is
-enough. This is why `.{}` parses as an **empty list** rather than an
-empty map: with nothing inside, there is no `.field =` to mark it as a
-struct.
+| Grammar element | Compiled form |
+|---|---|
+| `"0"`, `"."`, `"-"`, `"+"` | fixed tokens `#0`, `#T`, `#T1`, `#T2` |
+| `%x31-39`, `%x41-5A`, `%x61-7A` | one regex class token each |
+| `*digit`, `[ … ]`, `1*identifier-character`, `( … )` | helper rules (`_gen5_star_digit`, `_gen13_opt__gen12_group`, …) |
+| an alternative with a reference in its middle | a head rule plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
+| the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
-## Enum literals: one token, two roles
+One character is one token, because the grammar names only single
+characters. Helper and chain rules flatten: their text rolls up into the
+enclosing named rule's `src` and they add no node. Every named
+production survives by name — the `debug-model` test asserts as much —
+but not every one of them takes part in a parse.
 
-A bare `.foo` token (`#TX`) is valid in two positions. Before `=` it is
-a key (the field name `foo`); in value position it is an enum literal
-(the value `'foo'`). Because `#TX` is a member of both the `KEY` and
-`VAL` token sets, the parser picks the right interpretation purely by
-context — no grammar branching is needed.
+### Leading references are inlined
 
-When `enumTag` is set, an enum literal in value position must be
-wrapped as `{ [enumTag]: name }`. The relaxed-JSON grammar already owns
-the value-close phase via `@val-bc/replace`, and once a phase is
-"replaced" the engine suppresses any `/prepend` on it. So the wrapping
-runs in the *after-close* phase (`@val-ac`): it checks whether the
-closed value came from a token carrying the `zonEnum` flag, and if so
-rebuilds the node as the tagged object. Keys are unaffected, because
-they are consumed in key position, not as values.
+`@tabnas/bnf` runs Paull's substitution over every production: an
+alternative that *begins* with a reference to another rule has that
+rule's alternatives inlined, recursively, which is what fills in the
+lookahead columns. Here that dissolves `version-core`, `major` and the
+`numeric-identifier` beneath them into `valid-semver` — the compiled
+`valid-semver` opens directly on `#0 #T` or a positive digit and pushes
+`minor` — and likewise the first `pre-release-identifier` into
+`pre-release` and the first `build-identifier` into `build`. The parse
+never pushes those rules, so they never get a node and never fire a
+lifecycle hook, while `minor`, `patch` and every identifier after the
+first do. So the parse tree is not the grammar tree, and which rules the
+compiler keeps is a property of the compiler, not of the specification;
+a value built by walking the tree would be coupled to that detail.
 
-## Why reuse one instance
+## Why the value is built from the accepted text
 
-Building the ZON grammar — parsing the embedded grammar text, applying
-the option overlay, wiring the custom matchers — dominates the cost of
-a parse; the parse itself, on a typical small ZON value, is cheap by
-comparison. The instance is stateless across parses (each parse builds
-its own context and only reads instance state), so the right pattern is
-to build the engine once and reuse it for every input. The repo's
-performance test guards exactly this: reuse stays linear, and the
-rebuild-per-parse anti-pattern is many times slower.
+The plugin has one semantic action, registered as `@semver:ac` — the
+after-close phase of the start rule. When `semver` closes, its node's
+`src` is the text every terminal under it matched, and because every
+default lexer is off (below) that is the whole input, character for
+character. The grammar has just proven the text well-formed, so the
+action splits it at the separators without checking anything: the first
+`+` opens the build metadata (no identifier contains `+`); before it,
+the first `-` opens the pre-release (the version core contains no `-`);
+`.` separates identifiers, which never contain it. The action replaces
+the compiler's `{rule, src, kids}` node with the `Version` object, and
+the `__start__` wrapper bubbles it up as the result.
 
-## Accepted vs rejected — edge cases
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver, format } from '@tabnas/semver'
 
-- `.{}` → `[]`. An empty literal is a list, not a map.
-- `{ a = 1 }` → **error**. Bare `{` is not a ZON opener; it was
-  removed.
-- `'A'` → `'A'` by default, `65` with `charAsNumber: true`. The single
-  quote is a char literal, not a string delimiter.
-- `"a\\b"` → `'a\b'`. Double quotes are the only string delimiter, with
-  Zig escapes; an unknown escape is an error.
-- `.red` as a value → `'red'`, or `{ tag: 'red' }` with `enumTag`.
-- `.red` as a key (`.red = 1`) → key `red`; `enumTag` never applies to
-  keys.
-- Trailing comma before `}` → accepted in both structs and tuples.
-- `//` comment → discarded; `#` and `/* */` are **not** comments in
-  ZON.
+const tn = new Tabnas().use(Semver)
+
+tn.parse('1.0.0-x.7.z.92+exp.sha.5114f85') // => { major: 1, minor: 0, patch: 0, prerelease: ['x', 7, 'z', 92], build: ['exp', 'sha', '5114f85'] }
+format(tn.parse('1.0.0-x-y-z.--')) // => '1.0.0-x-y-z.--'
+```
+
+Because the value is a function of the accepted text alone, `format`
+gives the input back exactly, and the plugin is immune to which rules
+the compiler inlines.
+
+**Why the hook hangs on `semver`, not `valid-semver`.** The `semver`
+production is a pure alias of the specification's root, and exists for
+one reason. `attachActions` turns `@semver:ac` into the engine's
+`@semver-ac` function reference, and the published TypeScript engine
+(0.9.0) derived the phase of such a reference by splitting at the
+*first* hyphen: `@valid-semver-ac` was read as the phase `semver-ac`
+and threw at install. The engine has since been fixed, and the Go
+engine never had the bug, but the one unhyphenated name keeps the plugin
+working on the engine already published, and costs nothing.
+
+## The value decisions
+
+`Version` is a plain object with the five parts the specification
+names, keys in that order, and an empty array where a part is absent.
+Three representation choices deserve an explanation, each about a value
+the specification leaves open.
+
+**Integers switch to `bigint` above 2^53 − 1.** `major`, `minor`,
+`patch` and a numeric pre-release identifier are a `number` while they
+fit `Number.MAX_SAFE_INTEGER` and a `bigint` beyond it. The
+specification places no upper bound on an integer, and a parser that
+silently rounded `9007199254740993.0.0` would report the wrong version.
+`format` renders either as plain digits.
+
+**Pre-release identifiers keep their kind.** An identifier that is all
+digits is a number; the grammar has already excluded a leading zero
+there. Any other identifier is a string, leading zeros included (`01a`,
+`007a`), as are the specification's odder examples such as `--`. The
+specification compares the two kinds differently (§11.4), so the value
+has to carry the distinction; a consumer can test `typeof` instead of
+re-parsing.
+
+**Build identifiers are always strings.** `001` keeps its zeros, and
+build metadata takes no part in precedence, so a number would lose
+information for nothing.
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver, format } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+tn.parse('9007199254740991.0.0').major // => 9007199254740991
+tn.parse('9007199254740992.0.0').major // => 9007199254740992n
+format(tn.parse('9007199254740992.0.0')) // => '9007199254740992.0.0'
+
+tn.parse('1.0.0-alpha.1').prerelease // => ['alpha', 1]
+tn.parse('1.0.0-0.3.7').prerelease // => [0, 3, 7]
+tn.parse('1.0.0-1a').prerelease // => ['1a']
+tn.parse('1.0.0-x-y-z.--').prerelease // => ['x-y-z', '--']
+
+tn.parse('1.0.0-alpha+001').build // => ['001']
+tn.parse('1.0.0+21AF26D3----117B344092BD').build // => ['21AF26D3----117B344092BD']
+```
+
+## Precedence
+
+`compare(a, b)` is the specification's §11 over two parsed values,
+returning `-1`, `0` or `1`. It does not re-parse, and `0` means the two
+have the same precedence, not that they were the same string:
+
+1. `major`, `minor`, `patch` numerically — `<` and `>` compare a
+   `number` with a `bigint` correctly, so the representation switch is
+   invisible here.
+2. A pre-release version ranks below its normal version (§11.3).
+3. Otherwise pre-release identifiers are compared left to right: numeric
+   ones numerically, alphanumeric ones in ASCII order, and a numeric
+   identifier always below an alphanumeric one (§11.4.1–3).
+4. When every preceding identifier is equal, the larger set of
+   identifiers ranks higher (§11.4.4).
+5. Build metadata is ignored (§10, §11.1).
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver, compare } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+compare(tn.parse('1.0.0-alpha'), tn.parse('1.0.0-alpha.1')) // => -1
+compare(tn.parse('1.0.0-alpha.1'), tn.parse('1.0.0-alpha.beta')) // => -1
+compare(tn.parse('1.0.0-beta.2'), tn.parse('1.0.0-beta.11')) // => -1
+compare(tn.parse('1.0.0-rc.1'), tn.parse('1.0.0')) // => -1
+compare(tn.parse('1.0.0-Z'), tn.parse('1.0.0-a')) // => -1
+compare(tn.parse('1.0.0+a'), tn.parse('1.0.0+b')) // => 0
+compare(tn.parse('2.0.0'), tn.parse('10.0.0')) // => -1
+```
+
+The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
+1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
+1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
+the shared fixture `test/precedence/order.tsv`, which both runtimes check
+pairwise in both directions, so transitivity is pinned too;
+`equal.tsv` holds the pairs that differ only in build metadata.
+
+## Why every default lexer is off
+
+The engine's defaults are JSON's: it skips whitespace, line ends and
+comments, lexes quoted strings, numbers, bare words and keyword values
+such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Each
+of those would let the plugin accept something the specification
+rejects — `' 1.2.3'`, `'1.2.3\n'`, `'"1.2.3"'`, `'1.2.3#comment'` — or
+mis-lex something it accepts, such as the pre-release identifier `true`.
+
+So the plugin sets, on the compiled spec's options, `lex: false` for the
+space, line, comment, string, number, text and value lexers; unbinds the
+six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`, `#CA`); and
+sets `lex.empty: false`, so an empty source is a parse error rather than
+the engine's default answer of `undefined`. What remains is exactly the
+grammar's seven tokens. A character the grammar does not name — a
+blank, a tab, a newline, a quote, a `v` prefix — has no matcher at all
+and is rejected as `unexpected` at its position, never skipped, never
+swallowed. The punctuation is unbound rather than merely unused so that
+JSON's tokens do not show up in diagnostics and introspection as tokens
+of this grammar. Turn any of these defaults back on and the plugin
+accepts strings the specification rejects; the options ride on the spec
+precisely so that they can only arrive together with the grammar.
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+let code
+try { tn.parse(' 1.2.3') } catch (e) { code = e.code }
+code // => 'unexpected'
+try { tn.parse('') } catch (e) { code = e.code }
+code // => 'unexpected'
+tn.parse('1.0.0-true.null').prerelease // => ['true', 'null']
+```
+
+## Why there are no error codes
+
+Every rejection is the engine's base `unexpected` code, raised where the
+grammar has no alternative for the next character. The plugin declares
+no code of its own — `tabnas.plugin.json` lists an empty `errorCodes` —
+and adds only a `hint` for `unexpected` that says what a version has to
+look like and links to the specification.
+
+That is a decision, not a gap. The grammar is the sole acceptor, and the
+compiler offers no safe place for an error production: a trap
+alternative at a leading position is inlined by Paull's substitution
+(above), and a nullable trap inlined there would change the accepted
+language rather than merely label a rejection. A code that can only be
+raised from some positions is worse than none. The fixtures pin the
+contract instead: all 141 rows of `test/spec/strict.tsv` expect
+`ERROR:unexpected`, compared exactly in both runtimes. The position
+reported at a lookahead failure may differ between the runtimes; the
+code is the contract, the position is not.
+
+## Conformance
+
+The claim is that `@tabnas/semver` accepts exactly the strings the
+semver.org grammar accepts, and produces the parts the specification
+names for each. The judge is not this repository: semver.org publishes,
+in its FAQ, a regular expression that recognises the language of its
+grammar, and `ts/test/oracle.test.ts` (with `go/oracle_test.go` as its
+twin) grades every string of a generated corpus against it. The plugin's
+verdict must equal the expression's; on every accepted string the value
+must match the expression's captures and `format` must return the
+input.
+
+| Section | Strings | Accepted | Rejected |
+|---|---|---|---|
+| `exhaustive` — the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
+| `structured` — 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
+| `mutation` — valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
+| `random` — random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
+
+The corpus is generated, not committed: both runtimes derive the same
+58,449 strings from the same alphabets, enumeration order and
+xorshift32 stream, and a pinned FNV-1a hash over the whole corpus
+(`0x97bd27cb`) proves they graded the same strings. The per-section
+census is pinned as well, so a section that starts accepting more or
+fewer strings goes red instead of inflating a pass rate; changing the
+generator means re-pinning both constants in both runtimes in one
+commit. The suites never skip.
+
+Everything the corpus pins that is worth reading is also committed as a
+shared fixture: `test/spec/*.tsv` holds the specification's own
+examples, the version core, pre-release and build identifiers, and the
+141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
+`compare` chain and the equal pairs. Both runtimes auto-discover and run
+every file. A new parse case belongs there; the in-language suites keep
+only what a `.tsv` cannot express — `bigint` values, function results,
+error details.
 
 ## Relationship to the Go port
 
-The plugin ships in two implementations — this TypeScript one and a Go
-port — built from the same canonical `zon-grammar.jsonic`. The
-TypeScript version is the reference. For the Go API shape, value types,
-and any accepted differences, see
+The plugin ships in two implementations built from the one grammar:
+`embed-grammar.js` copies `semver-grammar.abnf` verbatim into both
+`src/semver.ts` and `go/semver.go`, and the Go port compiles it with
+`github.com/tabnas/abnf/go` at install, sets the same engine options,
+and runs the same shared fixtures and the same corpus with the same
+pinned census and hash. This TypeScript version is canonical: when the
+two disagree on parse behaviour, Go changes to match — unless Go has
+exposed a TypeScript defect, in which case TypeScript is fixed first,
+as happened with both toolchain fixes below.
+
+The value has the same shape modulo the host language: a
+`map[string]any` with the same five keys, `float64` where this side has
+`number` and `*big.Int` where it has `bigint`, switching at the same
+`MaxSafeInteger`; `prerelease` is a `[]any` of `float64`/`*big.Int` and
+`string`, and `build` a `[]any` of `string`. Where this side throws a
+`TabnasError`, Go returns a `*tabnas.TabnasError` with
+`Code == "unexpected"` as a second value, and `Compare` and `Format`
+return an error for an argument that is not a parsed value. Go also has
+a `Parse` convenience over one cached instance behind a mutex, which the
+TypeScript side deliberately lacks. See
 [../../go/doc/concepts.md](../../go/doc/concepts.md).
+
+## A note on two toolchain fixes
+
+The oracle corpus found two defects in the TypeScript toolchain, both
+already right in the Go port: `@tabnas/bnf` now marks character-class
+tokens eager, so a class can be lexed at any lookahead slot
+([tabnas/bnf#33](https://github.com/tabnas/bnf/pull/33)), and the
+`@tabnas/parser` lexer now tries the match tokens a rule expects at a
+slot before the eager ones it does not
+([tabnas/parser#161](https://github.com/tabnas/parser/pull/161)). The
+plugin carries the first itself — after compiling, it sets `eager$` on
+every class token, a no-op once the emitter has done so. The second
+lives in the engine, and this grammar does not need it: its three
+classes and four literals are pairwise disjoint, so no character can be
+cut two ways and the order the lexer tries tokens in cannot matter. So
+an isolated `npm install` against the published `@tabnas/bnf` 0.1.10 and
+`@tabnas/parser` 0.9.0 passes the whole suite, oracle corpus included.
+Without the port it rejected strings such as `1.0.0-01a` and
+`1.0.0-12a`: the `*digit` helper peeks two digits, and the letter that
+ends the run lexed as a fatal bad token at the second slot. The fleet
+layout, with sibling checkouts linked into `node_modules`, gets the same
+behaviour from the fixed toolchain, and the Go module never needed
+either fix.

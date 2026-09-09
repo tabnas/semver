@@ -271,6 +271,24 @@ describe('semver', () => {
       assert.deepStrictEqual(Semver.defaults, {})
     })
 
+    test('marks every character-class token eager (port of tabnas/bnf#33)', () => {
+      // src/semver.ts sets the flag after compiling so the plugin is right
+      // on the published @tabnas/bnf too. Delete this test with that loop
+      // once the peer floor is a bnf that sets it itself (AGENTS.md, "The
+      // tabnas engine dependency").
+      const tokens = (tn.options as any).match.token as Record<
+        string,
+        RegExp & { eager$?: boolean }
+      >
+      const classes = Object.keys(tokens).filter((k) => k.startsWith('#RX'))
+      assert.deepStrictEqual(classes.sort(), [
+        '#RX___U0031__U0039',
+        '#RX___U0041__U005A',
+        '#RX___U0061__U007A',
+      ])
+      for (const k of classes) assert.equal(tokens[k].eager$, true, k)
+    })
+
     test('exports the ABNF grammar text it compiles', () => {
       assert.equal(typeof grammar, 'string')
       assert.match(grammar, /^valid-semver = version-core \[ "-" pre-release \] \[ "\+" build \]$/m)
