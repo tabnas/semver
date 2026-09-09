@@ -1,197 +1,484 @@
 # Concepts (Go)
 
-Background on how the Go ZON plugin is put together, and why — plus a
-section on how it differs from the TypeScript version. This is
-understanding-oriented reading; for steps see the
+Background on how the Go semver plugin is put together, and why — and,
+at the end, how it differs from the canonical TypeScript version. This
+is understanding-oriented reading; for steps see the
 [tutorial](tutorial.md) and [how-to guide](guide.md), and for exact
-signatures and syntax see the [reference](reference.md).
+signatures, the value shape and the complete accepted syntax see the
+[reference](reference.md).
 
 ## A grammar plugin on a shared engine
 
-The plugin has no parser of its own. It is a thin layer on a stack of
-two pieces:
+The module has no parser of its own. It sits at the top of a stack of
+four pieces:
 
-- the **jsonic engine** (`github.com/tabnas/jsonic/go`) — a rule-based
-  parser over a configurable, matcher-based lexer, carrying the
-  relaxed-JSON grammar and its helper actions (`@array$`, the
-  `val`/`map`/`list`/`pair`/`elem` rules), and
-- **this plugin** (`github.com/tabnas/zon/go`) — the option overrides,
-  custom lex matchers, and small grammar overlay that retune that stack
-  to read Zig anonymous-struct syntax instead of JSON.
+- the **tabnas engine** (`github.com/tabnas/parser/go`) — a
+  configurable lexer under a rule-and-alternative parser, driven by
+  whatever grammar it is handed;
+- the **notation-neutral compiler** (`github.com/tabnas/bnf/go`) — turns
+  a grammar into the engine's rule set without knowing which notation it
+  was written in;
+- the **ABNF front end** (`github.com/tabnas/abnf/go`) — reads RFC 5234
+  ABNF and drives that compiler; the plugin calls its `Abnf` and
+  `AttachActions`;
+- **this module** (`github.com/tabnas/semver/go`, package
+  `tabnassemver`) — the grammar text, one semantic action, a set of
+  engine options, and the `Compare` and `Format` helpers.
 
-Because the engine is configuration-driven, ZON support is mostly an
-options change plus a handful of alternates — not a new parser. The
-plugin embeds the canonical grammar text (from the repo-root
-`zon-grammar.jsonic`, kept in sync with the TypeScript source by the
-build), parses it with a throwaway jsonic instance into a
-`*tabnasjsonic.GrammarSpec`, attaches its `*tabnasjsonic.Options` overrides to that
-spec, and applies the whole thing atomically via `j.Grammar(gs,
-&tabnasjsonic.GrammarSetting{Rule: ...G: "zon"})`.
+Install is where the work happens. `Semver(j, opts)` compiles the ABNF
+into a rule set (about 10 ms), attaches the action, sets the options on
+the compiled spec and hands the whole thing to the engine in one
+`j.Grammar(spec)` call, so grammar and options arrive together. A parse
+afterwards costs about 100 µs, which is why every document here says to
+build one instance and reuse it: `Make()` returns a bare engine with the
+plugin installed, and the package-level `Parse` keeps one such instance
+for the life of the process. Installing the plugin a second time on the
+same instance is a no-op — a `semver-init` decoration on the engine
+records that the work is done — and `perf_test.go` checks that the
+package-level `Parse` costs no more than a reused instance, which a
+rebuild-per-call regression would fail by a wide margin.
 
-## ZON is not a superset of JSON
+## The grammar is the parser
 
-JSON and ZON share scalars but differ in structure:
+The specification publishes its grammar in BNF. `semver-grammar.abnf`
+at the repository root is that grammar transcribed into RFC 5234 ABNF,
+one production per production, with the specification's names kept and
+its spaces written as hyphens, so `<version core>` is `version-core`:
 
-| | JSON / jsonic | ZON |
-|---|---|---|
-| Open a map | `{` | `.{` (followed by `.field =`) |
-| Open a list | `[` | `.{` (otherwise) |
-| Close | `}` / `]` | `}` |
-| Key/value separator | `:` | `=` |
-| Keys | strings | `.identifier` |
-| Strings | `"` `'` `` ` `` | `"` only |
-| Comments | `#` `//` `/* */` | `//` only |
+```abnf
+semver       = valid-semver
+valid-semver = version-core [ "-" pre-release ] [ "+" build ]
+version-core = major "." minor "." patch
+pre-release  = pre-release-identifier *( "." pre-release-identifier )
+build        = build-identifier *( "." build-identifier )
+```
 
-The plugin makes those swaps by **disabling** what JSON allows and
-**adding** what ZON needs, rather than accepting both — so a
-`build.zig.zon` file that accidentally used JSON braces is a clear
-error, not a silent success.
+Nothing in the plugin's code decides what a valid version is: the
+grammar accepts or rejects, and code runs only after it has accepted.
+The file is single-sourced — the TypeScript build's `embed-grammar.js`
+copies it verbatim into `semver.go` (and into `ts/src/semver.ts`)
+between `BEGIN/END EMBEDDED` markers — and the same text is exported as
+the `Grammar` constant for tooling.
 
-## The four mechanisms
+### Two rewrites, one language
 
-The plugin reshapes the stack with four cooperating mechanisms, all
-applied together through one `GrammarSpec`:
+The engine picks an alternative from a bounded lookahead of a few
+tokens — a character each, and at most four for this grammar — never by
+reading to the end of an identifier. Two of the specification's
+productions cannot be dispatched that way, so the file rewrites their
+*shape*; its comments show that the *language* is unchanged.
 
-1. **Custom lex matchers** own the `.`-prefixed and Zig-specific
-   tokens, registered under `Options.Lex.Match` with high `Order`
-   values so they run ahead of the fixed-token matcher:
-   - `.{` peeks ahead and emits `#OB` (struct) when followed by
-     `<ws>.ident<ws>=`, or `#OS` (tuple) otherwise.
-   - `.identifier`, and `.@"any name"`, emit `#TX` whose `Val` is the
-     name with the dot stripped, and whose `Use["zonEnum"]` flag marks
-     it for optional enum-tag wrapping.
-   - `\\`-prefixed lines emit one `#ST` string token with the joined
-     content. Zig lexes the whole run as one token, so blank lines
-     inside it continue the literal.
-   - char literals emit a `#NR` number token whose value is a one-char
-     string or the code point (as `float64`), per `CharAsNumber`.
-   - numeric literals emit `#NR` from a matcher that reproduces Zig's
-     literal grammar exactly — jsonic's own number lexer is switched
-     off, because relaxed-JSON numbers (`+1`, `.5`, `0123`, `1__0`) are
-     not ZON numbers. An integer too large for an exact `float64`
-     becomes a `*big.Int`.
-   - `//!` and `///` fail the lex: they are Zig doc comments, which ZON
-     rejects.
+**`pre-release-identifier`.** The specification says
+`<alphanumeric identifier> | <numeric identifier>`. Both can begin with
+a digit — `1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
+nothing at all — and telling them apart may need every character of the
+identifier. The grammar factors on the first character instead:
 
-2. **Token remapping.** `#CL` is rebound from `:` to `=`; the default
-   char mappings for `#OB`, `#OS`, and `#CS` are dropped to `nil`, so a
-   stray `{`, `[`, or `]` is a syntax error. The default text matcher
-   is turned off.
+```abnf
+pre-release-identifier = "0" [ *digit alphanumeric-tail ]
+                       / positive-digit *digit [ alphanumeric-tail ]
+                       / alphanumeric-tail
+alphanumeric-tail      = non-digit *identifier-character
+```
 
-3. **Key-set restriction.** The `KEY` token set is narrowed to `#TX`
-   alone, so only an identifier can sit on the left of `=`.
+A lone `0` is the numeric identifier zero; `0` followed by more digits
+is valid only if a non-digit eventually arrives (`007a`); a positive
+digit starts a numeric identifier that becomes alphanumeric if a
+non-digit follows; anything else must be a non-digit. The union of the
+three is exactly alphanumeric ∪ numeric, and what it excludes is exactly
+a digit string with a leading zero — which the specification excludes
+too.
 
-4. **Grammar overlay.** A few alternates are prepended to `val`,
-   `list`, `elem`, and `pair`, plus a before-close guard on `pair` that
-   rejects a repeated field name (Zig does too). They swap the list terminator from the
-   default `#CS` to `#CB`, seed the list node with `@array$`, and
-   accept a trailing comma before `}`.
+**`build-identifier`.** The specification says
+`<alphanumeric identifier> | <digits>`: a non-empty identifier string
+with a non-digit in it, or one without. Their union is every non-empty
+identifier string, so the grammar writes `1*identifier-character`, and
+`001` is a valid build identifier, zeros and all.
 
-The `Rule.Exclude = "jsonic,imp"` override removes jsonic's implicit
-maps/lists, top-level commas, and path-dive extensions, and
-`Rule.Start = "val"` makes a single value the entry rule.
+Neither rewrite is an approximation, and the conformance corpus (below)
+checks that against an independent judge on every run.
 
-## Struct vs tuple disambiguation
+## What the compiler makes of it
 
-ZON uses one opener, `.{`, for both maps and lists. The parser allows
-only two tokens of lookahead — not enough to tell a struct from a tuple
-by grammar alone. So the decision is pushed into the lexer: when the
-`.{` matcher fires (`peekIsMapOpen`), it scans past the brace,
-whitespace, and `//` comments and checks for `.ident` followed by `=`.
-If found, it emits `#OB` (struct); otherwise `#OS` (tuple). The grammar
-only ever sees an already-classified open token. This is why `.{}`
-parses as an **empty list**: with nothing inside, there is no
-`.field =` to mark it as a struct.
+`abnf.Abnf(Grammar, &abnf.AbnfConvertOptions{Start: "semver", Tag:
+"semver"})` returns a `*tabnas.GrammarSpec` holding the engine's rule
+set and the options it needs — for this grammar, 150 rules over seven
+tokens:
 
-## Enum literals: one token, two roles
+| Grammar element | Compiled form |
+|---|---|
+| `"0"`, `"."`, `"-"`, `"+"` | fixed tokens `#0`, `#T`, `#T1`, `#T2` |
+| `%x31-39`, `%x41-5A`, `%x61-7A` | one regular-expression class token each, marked eager |
+| `*digit`, `[ … ]`, `1*identifier-character`, `( … )` | helper rules (`_gen5_star_digit`, `_gen13_opt__gen12_group`, …) |
+| an alternative with more than one rule reference | a head rule (`valid-semver$alt0`) plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …), one per further reference |
+| the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
-A bare `.foo` token (`#TX`) is valid in two positions: before `=` it is
-a key (field name `foo`); in value position it is an enum literal
-(value `"foo"`). Because `#TX` belongs to both the `KEY` and `VAL`
-token sets, the parser picks the right reading purely by context.
+One character is one token, because the grammar names only single
+characters. Helper and chain rules flatten: their text rolls up into the
+enclosing named rule's `src` and they add no node. Every named
+production survives by name, but not every one of them takes part in a
+parse.
 
-When `EnumTag` is set, an enum literal in value position is wrapped as
-`map[string]any{EnumTag: name}`. jsonic's grammar already owns the
-value-close phase via `@val-bc/replace`, and once a phase is "replaced"
-the engine suppresses any `/prepend` on it. So the wrapping runs in the
-*after-close* phase (`@val-ac`): a `StateAction` checks whether the
-closed value came from a token carrying the `zonEnum` flag, and if so
-rebuilds `r.Node` as the tagged map. Keys are unaffected.
+### Leading references are inlined
 
-## Why reuse one instance
+`github.com/tabnas/bnf/go` runs Paull's substitution over every
+production: an alternative that *begins* with a reference to another
+rule has that rule's alternatives inlined, recursively, which is what
+fills in the lookahead columns. The one exemption is a pure alias — a
+production whose only alternative is a single reference, such as
+`major = numeric-identifier` or `semver = valid-semver` — which has
+nothing to dispatch between and is left to push its target. Here the
+substitution dissolves `version-core`, `major` and the
+`numeric-identifier` beneath them into `valid-semver`: the compiled
+`valid-semver` opens on a `0` or a positive digit directly, through two
+alternative chains (`valid-semver$alt0` and `valid-semver$alt1`) fanned
+out over lookahead rows of up to four tokens, and it is those chains
+that push `minor`. Likewise the first `pre-release-identifier` dissolves
+into `pre-release` (five chains, one per kind of first character) and
+the first `build-identifier` into `build`. The parse never pushes the
+dissolved rules, so they never get a node and never fire a lifecycle
+hook, while `minor`, `patch` and every identifier after the first do.
+So the parse tree is not the grammar tree, and which rules the compiler
+keeps is a property of the compiler, not of the specification; a value
+built by walking the tree would be coupled to that detail.
 
-Building the ZON grammar dominates the cost of a parse; the parse
-itself is cheap. The default no-options `Parse` path therefore caches a
-single instance behind a `sync.Once`, reusing it across calls (safe for
-concurrent use, since a parse builds its own context and only reads
-instance state). Option-taking calls build a dedicated instance, since
-their configuration differs per call — use `MakeJsonic` once and reuse
-it for a hot loop with fixed options. The repo's `perf_test.go` guards
-the reuse win.
+## Why the value is built from the accepted text
+
+The plugin has one semantic action, registered as `@semver:ac` — the
+after-close phase of the start rule. When `semver` closes, its node's
+`src` is the text every terminal under it matched, and because every
+default lexer is off (below) that is the whole input, byte for byte.
+The grammar has just proven the text well-formed, so the action splits
+it at the separators without checking anything: the first `+` opens the
+build metadata (no identifier contains `+`); before it, the first `-`
+opens the pre-release (the version core contains no `-`); `.` separates
+identifiers, which never contain it. The action replaces the compiler's
+`{rule, src, kids}` node with the value map, and the `__start__` wrapper
+bubbles it up as the parse result:
+
+```go
+err = abnf.AttachActions(spec, abnf.ActionsMap{
+	"@semver:ac": {func(r *tabnas.Rule, _ *tabnas.Context) {
+		if node, ok := r.Node.(map[string]any); ok {
+			if src, ok := node["src"].(string); ok {
+				r.Node = fromText(src)
+			}
+		}
+	}},
+})
+```
+
+Because the value is a function of the accepted text alone, `Format`
+gives the input back exactly, and the plugin is immune to which rules
+the compiler inlines:
+
+```go
+v, _ := tabnassemver.Parse("1.0.0-x.7.z.92+exp.sha.5114f85")
+// map[string]any{
+//   "major": float64(1), "minor": float64(0), "patch": float64(0),
+//   "prerelease": []any{"x", float64(7), "z", float64(92)},
+//   "build":      []any{"exp", "sha", "5114f85"},
+// }
+s, _ := tabnassemver.Format(v) // "1.0.0-x.7.z.92+exp.sha.5114f85"
+```
+
+**Why the hook hangs on `semver`, not `valid-semver`.** The `semver`
+production is a pure alias of the specification's root, and exists for
+one reason. `AttachActions` turns `@semver:ac` into the engine's
+`@semver-ac` function reference, and the published TypeScript engine
+(0.9.0) derived the phase of such a reference by splitting at the
+*first* hyphen: `@valid-semver-ac` was read as the phase `semver-ac`
+and threw at install. The Go engine never had that bug and would bind
+the hook on `valid-semver` directly; the alias is kept here so both
+runtimes compile the same grammar, and costs nothing — the compiler's
+pure-alias exemption (above) is what leaves it standing as a rule of its
+own, with a node for the action to replace.
+
+## The value decisions
+
+The value is a `map[string]any` with the five parts the specification
+names, always all five, with an empty `[]any{}` where a part is absent.
+Three representation choices deserve an explanation, each about a value
+the specification leaves open.
+
+**Integers switch to `*big.Int` above 2^53 − 1.** `major`, `minor`,
+`patch` and a numeric pre-release identifier are a `float64` while they
+fit `MaxSafeInteger` (`1<<53 - 1`, JavaScript's
+`Number.MAX_SAFE_INTEGER`) and a `*big.Int` from `math/big` beyond it.
+The specification places no upper bound on an integer, and a parser
+that silently rounded `9007199254740993.0.0` would report the wrong
+version. The threshold is JavaScript's so that the two runtimes switch
+representation at the same value; `Format` renders either as plain
+digits.
+
+**Pre-release identifiers keep their kind.** An identifier that is all
+digits is a number; the grammar has already excluded a leading zero
+there. Any other identifier is a `string`, leading zeros included
+(`01a`, `007a`), as are the specification's odder examples such as
+`--`. The specification compares the two kinds differently (§11.4), so
+the value has to carry the distinction; a consumer can type-switch
+instead of re-parsing.
+
+**Build identifiers are always strings.** `001` keeps its zeros, and
+build metadata takes no part in precedence, so a number would lose
+information for nothing.
+
+```go
+v, _ := tabnassemver.Parse("9007199254740991.0.0")
+v.(map[string]any)["major"] // float64(9007199254740991)
+
+v, _ = tabnassemver.Parse("9007199254740992.0.0")
+v.(map[string]any)["major"] // *big.Int 9007199254740992
+s, _ := tabnassemver.Format(v)      // "9007199254740992.0.0"
+
+v, _ = tabnassemver.Parse("1.0.0-0.3.7")
+v.(map[string]any)["prerelease"] // []any{float64(0), float64(3), float64(7)}
+v, _ = tabnassemver.Parse("1.0.0-1a")
+v.(map[string]any)["prerelease"] // []any{"1a"}
+v, _ = tabnassemver.Parse("1.0.0-alpha+001")
+v.(map[string]any)["build"]      // []any{"001"}
+```
+
+## Precedence
+
+`Compare(a, b)` is the specification's §11 over two parsed values,
+returning `-1`, `0` or `1`. It does not re-parse, and `0` means the two
+have the same precedence, not that they were the same string:
+
+1. `major`, `minor`, `patch` numerically — two `float64` values compare
+   directly, and once either side is a `*big.Int` both are compared as
+   big integers, so the representation switch is invisible here.
+2. A pre-release version ranks below its normal version (§11.3).
+3. Otherwise pre-release identifiers are compared left to right: numeric
+   ones numerically, alphanumeric ones in ASCII order (a plain Go string
+   comparison, since identifiers are ASCII), and a numeric identifier
+   always below an alphanumeric one (§11.4.1–3).
+4. When every preceding identifier is equal, the larger set of
+   identifiers ranks higher (§11.4.4).
+5. Build metadata is ignored (§10, §11.1).
+
+```go
+lt := func(a, b string) int {
+	x, _ := tabnassemver.Parse(a)
+	y, _ := tabnassemver.Parse(b)
+	c, _ := tabnassemver.Compare(x, y)
+	return c
+}
+lt("1.0.0-alpha", "1.0.0-alpha.1")      // -1
+lt("1.0.0-alpha.1", "1.0.0-alpha.beta") // -1
+lt("1.0.0-beta.2", "1.0.0-beta.11")     // -1
+lt("1.0.0-rc.1", "1.0.0")               // -1
+lt("1.0.0-Z", "1.0.0-a")                // -1
+lt("1.0.0+a", "1.0.0+b")                // 0
+lt("2.0.0", "10.0.0")                   // -1
+```
+
+The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
+1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
+1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
+the shared fixture `test/precedence/order.tsv`, which both runtimes
+check pairwise in both directions, so transitivity is pinned too;
+`equal.tsv` holds the pairs that differ at most in build metadata.
+
+## Why every default lexer is off
+
+The engine's defaults are JSON's: it skips whitespace, line ends and
+comments, lexes quoted strings, numbers, bare words and keyword values
+such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Each
+of those would let the plugin accept something the specification
+rejects — `" 1.2.3"`, `"1.2.3\n"`, `"\"1.2.3\""`, `"1.2.3#comment"` —
+or mis-lex something it accepts, such as the pre-release identifier
+`true`.
+
+So the plugin sets, on the compiled spec's `Options`, `Lex: &off` for
+the space, line, comment, string, number, text and value lexers;
+unbinds the six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`,
+`#CA`) by setting each to `nil` in `Fixed.Token`; and sets
+`Lex.Empty: &off`, so an empty source is a parse error rather than the
+engine's default answer of `nil`. What remains, beyond the engine's own
+end-of-source and bad-character markers, is exactly the grammar's seven
+tokens. A character the grammar does not name — a blank, a tab, a
+newline, a quote, a `v` prefix — has no matcher at all and is rejected
+as `unexpected` at its position, never skipped, never swallowed. The
+punctuation is unbound rather than merely unused so that JSON's tokens
+do not show up in diagnostics and introspection as tokens of this
+grammar. Turn any of these defaults back on and the plugin accepts
+strings the specification rejects; the options ride on the spec
+precisely so that they can only arrive together with the grammar.
+
+```go
+_, err := tabnassemver.Parse(" 1.2.3") // *tabnas.TabnasError, Code "unexpected", Col 1
+_, err = tabnassemver.Parse("")        // *tabnas.TabnasError, Code "unexpected"
+v, _ := tabnassemver.Parse("1.0.0-true.null")
+v.(map[string]any)["prerelease"]       // []any{"true", "null"}
+```
+
+## Why there are no error codes
+
+Every rejection is the engine's base `unexpected` code, raised where the
+grammar has no alternative for the next character. The plugin declares
+no code of its own — `tabnas.plugin.json` at the repository root lists
+an empty `errorCodes` — and adds only a `Hint` for `unexpected` that
+says what a version has to look like and links to the specification.
+
+That is a decision, not a gap. The grammar is the sole acceptor, and the
+compiler offers no safe place for an error production: a trap
+alternative at a leading position is inlined by Paull's substitution
+(above), and a nullable trap inlined there would change the accepted
+language rather than merely label a rejection. A code that can only be
+raised from some positions is worse than none. The fixtures pin the
+contract instead: all 141 rows of `test/spec/strict.tsv` expect
+`ERROR:unexpected`, compared exactly in both runtimes.
+
+The position is where the grammar ran out of alternatives, which is not
+always where a human would point. `v1.2.3` fails at column 1 on the
+`v`; `1.2.3-01` fails at column 9, the end of the input, because `01`
+could still have become the alphanumeric identifier `01a` and only the
+end of the string settled it. `01.2.3` is reported at the `0` in both
+runtimes today, but at a lookahead failure the two engines are not
+required to agree, and a compiler change can move the column. The code
+is the contract; the position is not.
+
+## Conformance
+
+The claim is that the plugin accepts exactly the strings the semver.org
+grammar accepts, and produces the parts the specification names for
+each. The judge is not this repository: semver.org publishes, in its
+FAQ, a regular expression that recognises the language of its grammar,
+and `oracle_test.go` (with `ts/test/oracle.test.ts` as its twin) grades
+every string of a generated corpus against it. The plugin's verdict must
+equal the expression's; on every accepted string the value must match
+the expression's captures and `Format` must return the input.
+
+| Section | Strings | Accepted | Rejected |
+|---|---|---|---|
+| `exhaustive` — the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
+| `structured` — 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
+| `mutation` — valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
+| `random` — random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
+
+The corpus is generated, not committed: both runtimes derive the same
+58,449 strings from the same alphabets, enumeration order and
+xorshift32 stream, and a pinned FNV-1a hash over the whole corpus
+(`0x97bd27cb`) proves they graded the same strings. The per-section
+census is pinned as well, so a section that starts accepting more or
+fewer strings goes red instead of inflating a pass rate; changing the
+generator means re-pinning both constants in both runtimes in one
+commit. The suites never skip.
+
+Everything the corpus pins that is worth reading is also committed as a
+shared fixture: `test/spec/*.tsv` holds the specification's own
+examples, the version core, pre-release and build identifiers, and the
+141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
+`Compare` chain and the equal pairs. Both runtimes run every file —
+`parity_test.go` auto-discovers `test/spec`, `precedence_test.go` loads
+the two precedence files by name. A new parse case
+belongs there; the in-language suites keep only what a `.tsv` cannot
+express — `*big.Int` values, function results, error details.
 
 ## Differences from the TS version
 
-The TypeScript implementation is the reference; the Go module is a
-faithful port built from the same `zon-grammar.jsonic`. The differences
-do **not** change a successful parse's *structure* — they concern the
-host language's API shape, value types, and a couple of error codes.
+The TypeScript implementation in `ts/src/semver.ts` is canonical; this
+module is a port built from the same `semver-grammar.abnf`, compiling
+it with the same options and running the same fixtures and the same
+corpus with the same pinned census and hash. When the two disagree on
+parse behaviour, Go changes to match — unless Go has exposed a
+TypeScript defect, in which case TypeScript is fixed first, as happened
+with both toolchain fixes below. The differences do not change *which*
+strings parse or *what* parts they produce; they are about the host
+language.
 
 ### API shape
 
 | Area | TypeScript | Go |
 |---|---|---|
-| Convenience entry | none — install the plugin yourself | `tabnaszon.Parse(src, opts...)` and `tabnaszon.MakeJsonic(opts...)` |
-| Build a parser | `new Tabnas().use(jsonic).use(Zon, opts)` | `tabnaszon.MakeJsonic(opts)` or `j.UseDefaults(tabnaszon.Zon, tabnaszon.Defaults, m)` |
-| Options | one object `{ charAsNumber, enumTag }` | `ZonOptions{ CharAsNumber *bool, EnumTag string }`, or a `map[string]any` |
-| "Omit vs set" | option present or absent | `*bool` nil vs set; `EnumTag == ""` means unset |
-| Parse failure | **throws** | returns `error`; never panics on parse errors |
+| Convenience entry | none, by design — install the plugin yourself | `tabnassemver.Parse(src)` over one cached instance |
+| Build a parser | `new Tabnas().use(Semver)` | `tabnassemver.Make()`, or `j.Use(tabnassemver.Semver)` / `j.UseDefaults(tabnassemver.Semver, tabnassemver.Defaults)` |
+| Options | `Semver.defaults` is `{}` | `Defaults` is an empty `map[string]any` |
+| Parse failure | `tn.parse` **throws** | `Parse` returns `(nil, error)`; never panics on bad input |
+| Precedence | `compare(a, b)` returns `-1 \| 0 \| 1` | `Compare(a, b)` returns `(int, error)` |
+| Rendering | `format(v)` returns `string` | `Format(v)` returns `(string, error)` |
+| Grammar text | `grammar` | `Grammar` |
+| Package version | `VERSION` | `VERSION` |
 
-The Go side adds the `Parse` / `MakeJsonic` convenience helpers because
-Go has no fluent `.use()` chain; the TypeScript side has no such
-helpers (you build the engine yourself with `.use(jsonic).use(Zon)`).
+`Compare` and `Format` take `any`, because that is what `Parse` returns,
+and so they can be handed something that is not a parsed version; they
+return an error (`semver: not a parsed version (want map[string]any)`)
+where the TypeScript functions rely on the `Version` type at compile
+time. `Make` panics only if the embedded grammar fails to install,
+which cannot happen on a correct build; bad input never panics.
 
 ### Value types
 
-TypeScript returns untyped `any` JavaScript values; Go returns `any`
-with predictable concrete types:
+TypeScript returns a typed `Version` object with its keys in
+specification order; Go returns `any` holding a `map[string]any` with
+predictable concrete types and, being a map, no key order:
 
 | Value | TypeScript | Go |
 |---|---|---|
-| Struct | object (null-prototype) | `map[string]any` |
-| Tuple / empty | array | `[]any` |
-| Number (all bases, float, char-as-number) | `number` | `float64` |
-| String / enum / char-as-string | `string` | `string` |
-| Boolean | `boolean` | `bool` |
-| Null | `null` | `nil` |
-| Tagged enum | `{ [tag]: name }` | `map[string]any{tag: name}` |
+| The version | `Version` object | `map[string]any` with keys `major`, `minor`, `patch`, `prerelease`, `build` |
+| `major`, `minor`, `patch` up to 2^53 − 1 | `number` | `float64` |
+| … beyond 2^53 − 1 | `bigint` | `*big.Int` |
+| Numeric pre-release identifier | `number` or `bigint` | `float64` or `*big.Int` |
+| Alphanumeric pre-release identifier | `string` | `string` |
+| `prerelease` | `(string \| number \| bigint)[]` | `[]any` |
+| `build` | `string[]` | `[]any` of `string` |
 
-The most visible consequence: ZON integers like `42` come back as the
-JavaScript number `42` in TypeScript and as `float64(42)` in Go — Go
-has no separate integer type in the result tree.
+The most visible consequence is that `1.2.3` comes back as
+`float64(1)`, `float64(2)`, `float64(3)`: Go has no separate integer
+type in the result, and the switch to `*big.Int` happens at exactly the
+value where TypeScript switches to `bigint`, so a reader of either
+runtime's value can rely on the same boundary.
 
-### Error codes
+### Concurrency
 
-A successful parse is identical across runtimes, but (inheriting
-jsonic's documented divergences) a few *failing* inputs map to
-different error **codes** between the two — for example a raw control
-character inside a double-quoted string reports `unprintable` in
-TypeScript and `unterminated_string` in Go. Both report the failure at
-the same row/column; only the `Code` differs. If you branch on the
-error code, account for this. See the jsonic Go
-[differences reference](../../../jsonic/go/doc/differences.md) for the
-full list.
+A Go engine instance is not safe for concurrent use, so the
+package-level `Parse` builds its instance once (`sync.Once`) and
+serialises callers through a mutex — the cost is far below rebuilding
+the grammar per call. An instance from `Make` has no such guard: reuse
+it on one goroutine, or make one per goroutine. The TypeScript side has
+no cached instance to guard: it has no `Parse` convenience, by design.
 
-## Accepted vs rejected — edge cases
+### Errors
 
-- `.{}` → `[]any{}`. An empty literal is a list, not a map.
-- `{ a = 1 }` → **error** (returned, not panicked). Bare `{` is not a
-  ZON opener.
-- `'A'` → `"A"` by default, `float64(65)` with `CharAsNumber` set.
-- `"a\\b"` → `"a\b"`. Double quotes only, with Zig escapes; unknown
-  escapes are an error.
-- `.red` as a value → `"red"`, or `map[string]any{tag: "red"}` with
-  `EnumTag`.
-- `.red` as a key (`.red = 1`) → key `red`; `EnumTag` never applies to
-  keys.
-- Trailing comma before `}` → accepted in both structs and tuples.
-- `//` comment → discarded; `#` and `/* */` are not comments in ZON.
+Where TypeScript throws a `TabnasError` (a `SyntaxError`) with `code`,
+`lineNumber` and `columnNumber`, Go returns a `*tabnas.TabnasError` as
+the second value, with `Code`, `Row`, `Col`, `Pos`, `Src` (the offending
+text) and `Hint`. In both, `Code` is `"unexpected"` for every rejection,
+the empty string included, and the hint text is the same. Marshalling
+the Go error with `encoding/json` gives the same structured diagnostic
+as `JSON.stringify` on the TypeScript side — `status: "failure"`,
+`code`, `message`, `hint` and the position fields — so a log line or an
+API response looks alike whichever runtime produced it. Only the code
+is guaranteed to match at a lookahead failure; see above.
+
+### Hooks
+
+The Go engine has always accepted a `@<rule>-<phase>` function
+reference on a hyphenated rule name, so this port could have attached
+its action to `valid-semver` directly. It uses the `semver` alias
+anyway, for parity: the two runtimes compile one grammar, and the alias
+is what keeps the TypeScript plugin working on the published engine.
+
+### The two toolchain fixes
+
+The oracle corpus found two defects in the TypeScript toolchain, and
+both were already the Go behaviour. The Go emitter in
+`github.com/tabnas/bnf/go` has always marked character-class tokens
+eager, so a class can be lexed at any lookahead slot; and the Go engine
+has always tried the match tokens a rule expects at a slot before the
+eager ones it does not. Without the first, the TypeScript plugin
+rejected strings such as `1.0.0-01a` and `1.0.0-12a` — the `*digit`
+helper peeks two digits, and the letter that ends the run lexed as a
+fatal bad token at the second slot. Both are fixed upstream
+([tabnas/bnf#33](https://github.com/tabnas/bnf/pull/33),
+[tabnas/parser#161](https://github.com/tabnas/parser/pull/161)), and
+the TypeScript plugin carries the first itself until a compiler that
+sets the flag is published. This module never needed either: there is
+no port of the fix in `semver.go`, and nothing to remove when the
+TypeScript side catches up.
+
+The TypeScript side of all of this is in
+[`../../ts/doc/concepts.md`](../../ts/doc/concepts.md); the conformance
+claim and the alignment rules the two runtimes follow are in the root
+[AGENTS.md](../../AGENTS.md).

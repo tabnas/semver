@@ -1,0 +1,127 @@
+; Semantic Versioning 2.0.0 — the grammar of a valid version string.
+;
+;   https://semver.org/spec/v2.0.0.html
+;   (section "Backus–Naur Form Grammar for Valid SemVer Versions")
+;
+; This file is the single source of truth for @tabnas/semver. It is RFC
+; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
+; install time, in both runtimes (ts/src/semver.ts and go/semver.go embed
+; it verbatim; "npm run embed" copies it there — never edit the copies).
+;
+; Every production keeps the name the specification gives it, with the
+; specification's spaces written as hyphens ("<version core>" is
+; "version-core"), and — with two exceptions explained below — the
+; specification's shape. The language accepted is EXACTLY the language of
+; the specification's grammar: the two rewrites are equivalences, not
+; approximations, and the conformance suite in both runtimes checks the
+; result against the regular expression semver.org publishes, on every
+; string of a short alphabet up to length five and on thousands of
+; mutated versions.
+;
+; The engine sees one character per token: the plugin switches every
+; default lexer (whitespace, line ends, comments, strings, numbers, bare
+; words) off, so nothing outside this grammar can be consumed, and a
+; blank, a tab, a newline or a "v" prefix is rejected like any other
+; character the grammar does not name.
+
+; The entry point. A pure alias of the specification's root production;
+; it exists so the plugin has one unhyphenated rule name to hang its
+; value-building action on (see ts/src/semver.ts, "@semver:ac").
+semver = valid-semver
+
+; <valid semver> ::= <version core>
+;                  | <version core> "-" <pre-release>
+;                  | <version core> "+" <build>
+;                  | <version core> "-" <pre-release> "+" <build>
+valid-semver = version-core [ "-" pre-release ] [ "+" build ]
+
+; <version core> ::= <major> "." <minor> "." <patch>
+version-core = major "." minor "." patch
+
+major = numeric-identifier
+minor = numeric-identifier
+patch = numeric-identifier
+
+; <pre-release> ::= <dot-separated pre-release identifiers>
+; <dot-separated pre-release identifiers> ::= <pre-release identifier>
+;   | <pre-release identifier> "." <dot-separated pre-release identifiers>
+pre-release = pre-release-identifier *( "." pre-release-identifier )
+
+; <build> ::= <dot-separated build identifiers>
+; <dot-separated build identifiers> ::= <build identifier>
+;   | <build identifier> "." <dot-separated build identifiers>
+build = build-identifier *( "." build-identifier )
+
+; <pre-release identifier> ::= <alphanumeric identifier>
+;                            | <numeric identifier>
+;
+; REWRITE 1 of 2. Both alternatives can begin with a digit ("1" is
+; numeric, "1a" is alphanumeric, "01a" is alphanumeric, "01" is nothing),
+; and the decision may need every character of the identifier, so the
+; specification's shape is not LL(1). It is factored on the first
+; character instead:
+;
+;   "0" alone is the numeric identifier zero; "0" followed by more digits
+;   is valid only if a non-digit eventually appears (an alphanumeric
+;   identifier such as "007a" — leading zeros are fine there);
+;
+;   a positive digit starts a numeric identifier, which turns into an
+;   alphanumeric one if a non-digit appears after the digits;
+;
+;   anything else must be a non-digit, and starts an alphanumeric
+;   identifier.
+;
+; The union of the three is exactly <alphanumeric identifier> ∪ <numeric
+; identifier>; what it excludes is exactly a digit string with a leading
+; zero, which the specification also excludes.
+pre-release-identifier = "0" [ *digit alphanumeric-tail ]
+                       / positive-digit *digit [ alphanumeric-tail ]
+                       / alphanumeric-tail
+
+; <alphanumeric identifier> ::= <non-digit>
+;                             | <non-digit> <identifier characters>
+;                             | <identifier characters> <non-digit>
+;                             | <identifier characters> <non-digit> <identifier characters>
+;
+; i.e. a non-empty string of identifier characters containing at least one
+; non-digit. Split at its FIRST non-digit, such a string is
+;
+;   *digit alphanumeric-tail
+;
+; and "alphanumeric-tail" is the part from that first non-digit on. It is
+; the form the factored pre-release-identifier above consumes after it
+; has already read the leading digits.
+alphanumeric-tail = non-digit *identifier-character
+
+; <build identifier> ::= <alphanumeric identifier>
+;                      | <digits>
+;
+; REWRITE 2 of 2. An alphanumeric identifier is a non-empty identifier
+; string with a non-digit in it; <digits> is a non-empty identifier
+; string with no non-digit in it. Their union is every non-empty
+; identifier string, leading zeros included ("001" is a valid build
+; identifier).
+build-identifier = 1*identifier-character
+
+; <numeric identifier> ::= "0"
+;                        | <positive digit>
+;                        | <positive digit> <digits>
+numeric-identifier = "0" / positive-digit *digit
+
+; <identifier character> ::= <digit>
+;                          | <non-digit>
+identifier-character = digit / non-digit
+
+; <non-digit> ::= <letter>
+;               | "-"
+non-digit = letter / "-"
+
+; <digit> ::= "0"
+;           | <positive digit>
+digit = "0" / positive-digit
+
+; <positive digit> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+positive-digit = %x31-39
+
+; <letter> ::= "A" | "B" | ... | "Z" | "a" | "b" | ... | "z"
+letter = %x41-5A / %x61-7A

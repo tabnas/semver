@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	validSample   = ".{ .a = 1 }"
-	invalidSample = ".{ .a = }"
+	validSample   = "1.2.3-alpha.1+build.5"
+	invalidSample = "1.2"
 )
 
 func decode(t *testing.T, doc string) map[string]any {

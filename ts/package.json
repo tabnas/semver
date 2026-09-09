@@ -1,34 +1,32 @@
 {
-  "name": "@tabnas/zon",
-  "version": "0.5.6",
-  "description": "This plugin allows the [Tabnas](https://github.com/tabnas/parser) JSON parser to support Zig Object Notation (ZON) syntax.",
-  "main": "dist/zon.js",
+  "name": "@tabnas/semver",
+  "version": "0.1.0",
+  "description": "Semantic Versioning 2.0.0 (semver.org) parsing for the Tabnas parser, defined as an ABNF grammar.",
+  "main": "dist/semver.js",
   "type": "commonjs",
-  "browser": "zon.min.js",
-  "types": "dist/zon.d.ts",
-  "homepage": "https://github.com/tabnas/zon",
+  "types": "dist/semver.d.ts",
+  "homepage": "https://github.com/tabnas/semver",
   "keywords": [
-    "zon",
-    "zig",
+    "semver",
+    "semantic-versioning",
+    "version",
+    "abnf",
     "tabnas",
-    "parser",
-    "object",
-    "json"
+    "parser"
   ],
   "author": "Richard Rodger (http://richardrodger.com)",
   "repository": {
     "type": "git",
-    "url": "git://github.com/tabnas/zon.git",
+    "url": "git://github.com/tabnas/semver.git",
     "directory": "ts"
   },
   "scripts": {
-    "corpus": "bash ../scripts/fetch-zigzon.sh",
-    "pretest": "npm run build && npm run corpus",
+    "pretest": "npm run build",
     "test": "node --enable-source-maps --test \"dist-test/*.test.js\"",
     "pretest-some": "npm run build",
     "test-some": "node --enable-source-maps --test-name-pattern=\"$npm_config_pattern\" --test \"dist-test/*.test.js\"",
     "pretest-watch": "npm run build",
-    "test-watch": "node --test --watch dist-test/zon.test.js",
+    "test-watch": "node --test --watch dist-test/semver.test.js",
     "embed": "node embed-grammar.js",
     "watch": "tsc --build src test -w",
     "build": "node embed-grammar.js && tsc --build src test",
@@ -49,14 +47,13 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@tabnas/jsonic": ">=0",
+    "@tabnas/abnf": ">=0",
     "@tabnas/parser": ">=0"
   },
   "devDependencies": {
+    "@tabnas/abnf": "*",
     "@tabnas/debug": "*",
-    "@tabnas/jsonic": "*",
     "@tabnas/parser": "*",
-    "@tabnas/railroad": "*",
     "@tabnas/support": "*",
     "@types/node": "25.6.0",
     "typescript": "6.0.3"

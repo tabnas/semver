@@ -1,36 +1,38 @@
-# @tabnas/zon
+# @tabnas/semver
 
 A [Tabnas](https://github.com/tabnas/parser) grammar plugin that parses
-[Zig Object Notation (ZON)](https://ziglang.org/documentation/master/#ZON)
-text into objects, arrays, and scalar values. ZON is the anonymous-struct
-data format used for Zig `build.zig.zon` manifests.
+[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) version
+strings into their five parts, exactly as the specification defines them.
+The parser is the specification's own grammar, compiled from ABNF by
+[`@tabnas/abnf`](https://github.com/tabnas/abnf) when the plugin is
+installed.
 
 ## Install
 
 ```bash
-npm install @tabnas/parser @tabnas/jsonic @tabnas/zon
+npm install @tabnas/parser @tabnas/abnf @tabnas/semver
 ```
 
-Requires `@tabnas/parser` >= 2 and `@tabnas/jsonic` >= 2 as peer
-dependencies.
+`@tabnas/parser` and `@tabnas/abnf` are peer dependencies.
 
 ## One example
 
-The plugin layers onto a Tabnas engine that already has the jsonic
-grammar:
+The plugin installs on a bare Tabnas engine:
 
 ```js
 import { Tabnas } from '@tabnas/parser'
-import { jsonic } from '@tabnas/jsonic'
-import { Zon } from '@tabnas/zon'
+import { Semver, compare, format } from '@tabnas/semver'
 
-const j = new Tabnas().use(jsonic).use(Zon)
+const tn = new Tabnas().use(Semver)
 
-j.parse('.{ .name = "Alice", .age = 30 }') // => { name: 'Alice', age: 30 }
-j.parse('.{ 1, 2, 3 }')                     // => [1, 2, 3]
+tn.parse('1.2.3-alpha.1+build.5')
+// => { major: 1, minor: 2, patch: 3, prerelease: ['alpha', 1], build: ['build', '5'] }
+
+compare(tn.parse('1.0.0-alpha'), tn.parse('1.0.0')) // => -1
+format(tn.parse('1.2.3+sha.5114f85'))               // => '1.2.3+sha.5114f85'
 ```
 
-Build the instance once and reuse it — constructing the grammar is the
+Build the instance once and reuse it — compiling the grammar is the
 expensive part.
 
 ## Documentation
@@ -40,28 +42,22 @@ framework:
 
 - [Tutorial](doc/tutorial.md) — a guided first parse, start to finish.
 - [How-to guide](doc/guide.md) — short recipes for individual tasks.
-- [Reference](doc/reference.md) — the public API, every option, and the
-  complete ZON syntax accepted.
-- [Concepts](doc/concepts.md) — how the plugin reshapes the engine, and
-  why.
+- [Reference](doc/reference.md) — the public API, the value shape, and
+  the complete syntax accepted.
+- [Concepts](doc/concepts.md) — how the plugin turns the specification's
+  grammar into a parser, and why.
 
 For the Go port, see [`../go/README.md`](../go/README.md).
 
-## Grammar diagram
+## Grammar
 
 The grammar is defined in the top-level
-[`zon-grammar.jsonic`](../zon-grammar.jsonic) and embedded into this
+[`semver-grammar.abnf`](../semver-grammar.abnf) and embedded into this
 implementation (and the Go port) by [`embed-grammar.js`](embed-grammar.js)
-during the build.
-
-The installed grammar as a railroad/syntax diagram, generated with
-[`@tabnas/railroad`](https://github.com/tabnas/railroad):
-
-![zon grammar railroad diagram](doc/grammar.svg)
-
-A vertical ASCII version is in [`doc/grammar.txt`](doc/grammar.txt).
+during the build. It is also exported, as `grammar`, for tooling that
+wants the text.
 
 ## License
 
-Copyright (c) 2025 Richard Rodger and other contributors,
+Copyright (c) 2026 Richard Rodger and other contributors,
 [MIT License](LICENSE).

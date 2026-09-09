@@ -1,0 +1,33 @@
+input	expected
+# Build metadata: dot-separated identifiers of [0-9A-Za-z-], always
+# strings, and leading zeros are allowed (<digits> has no such rule).
+1.0.0+1	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["1"]}
+1.0.0+0	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["0"]}
+1.0.0+01	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["01"]}
+1.0.0+001	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["001"]}
+1.0.0+000	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["000"]}
+1.0.0+a	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["a"]}
+1.0.0+build	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["build"]}
+1.0.0+build.1	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["build","1"]}
+1.0.0+1.build	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["1","build"]}
+1.0.0+a.b.c	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["a","b","c"]}
+1.0.0+0.0.0	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["0","0","0"]}
+1.0.0+00.01.02	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["00","01","02"]}
+1.0.0+-	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["-"]}
+1.0.0+--	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["--"]}
+1.0.0+-.-	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["-","-"]}
+1.0.0+a-b	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["a-b"]}
+1.0.0+sha.5114f85	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["sha","5114f85"]}
+1.0.0+ABC.def.123	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["ABC","def","123"]}
+# Build metadata after a pre-release.
+1.0.0-alpha+1	{"major":1,"minor":0,"patch":0,"prerelease":["alpha"],"build":["1"]}
+1.0.0-alpha.1+build.1	{"major":1,"minor":0,"patch":0,"prerelease":["alpha",1],"build":["build","1"]}
+1.0.0-1+1	{"major":1,"minor":0,"patch":0,"prerelease":[1],"build":["1"]}
+1.0.0-0+0	{"major":1,"minor":0,"patch":0,"prerelease":[0],"build":["0"]}
+1.0.0-a-b+c-d	{"major":1,"minor":0,"patch":0,"prerelease":["a-b"],"build":["c-d"]}
+1.0.0--+-	{"major":1,"minor":0,"patch":0,"prerelease":["-"],"build":["-"]}
+# A hyphen inside build metadata does not start a pre-release.
+1.0.0+a-1	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["a-1"]}
+1.0.0+1-a	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":["1-a"]}
+# Long, realistic metadata.
+2.5.1-rc.3+20260909.git.abcdef0	{"major":2,"minor":5,"patch":1,"prerelease":["rc",3],"build":["20260909","git","abcdef0"]}

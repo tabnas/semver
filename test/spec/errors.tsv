@@ -1,7 +1,0 @@
-input	expected	opts
-{ a = 1 }	ERROR
-0X2A	ERROR:zon_number
-.@""	ERROR:zon_ident
-'\\u{110000}'	ERROR:zon_char
-///x	ERROR:zon_doc_comment
-.{ .a = 1, .a = 2 }	ERROR:zon_dup_field

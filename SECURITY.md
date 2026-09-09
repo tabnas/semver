@@ -1,6 +1,6 @@
 # Security Policy
 
-Security policy for **tabnas/zon**. The organization-wide policy in
+Security policy for **tabnas/semver**. The organization-wide policy in
 [tabnas/.github](https://github.com/tabnas/.github/blob/main/SECURITY.md)
 is canonical; this file records it here so the policy is present in the
 repository it applies to.

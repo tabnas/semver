@@ -1,27 +1,23 @@
 {
   "$schema": "https://tabnas.dev/schema/plugin.schema.json",
-  "name": "@tabnas/zon",
-  "go": "github.com/tabnas/zon/go",
-  "description": "Zig Object Notation (ZON) parsing for the tabnas engine.",
-  "base": "@tabnas/jsonic",
+  "name": "@tabnas/semver",
+  "go": "github.com/tabnas/semver/go",
+  "description": "Semantic Versioning 2.0.0 (semver.org) parsing for the tabnas engine, compiled from an ABNF grammar.",
+  "base": "@tabnas/abnf",
   "engine": "@tabnas/parser",
-  "grammar": "zon-grammar.jsonic",
-  "extensions": [
-    ".zon"
-  ],
-  "languageId": "zon",
+  "grammar": "semver-grammar.abnf",
+  "extensions": [],
+  "languageId": "semver",
   "pluginKind": "grammar",
   "grammarKind": "closure",
   "lexStream": "clean",
   "syncGroups": [
-    "end",
-    "comma",
-    "close"
+    "end"
   ],
   "specDir": "test/spec",
   "clib": {
     "dir": "go/clib",
-    "library": "libtabnaszon",
+    "library": "libtabnassemver",
     "abi": "v1",
     "errorCodes": [
       "usage",
@@ -30,14 +26,8 @@
       "internal"
     ]
   },
-  "errorCodes": [
-    "zon_number",
-    "zon_ident",
-    "zon_char",
-    "zon_doc_comment",
-    "zon_dup_field"
-  ],
+  "errorCodes": [],
   "docs": "https://tabnas.dev/docs/packages",
-  "repository": "https://github.com/tabnas/zon",
+  "repository": "https://github.com/tabnas/semver",
   "versionSource": "ts/package.json"
 }

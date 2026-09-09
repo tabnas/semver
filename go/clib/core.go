@@ -6,7 +6,7 @@
 // from tasks/clib-template/; edit the template and re-stamp, not this
 // file — admin's verify gate fails on a stale stamp).
 //
-// libtabnaszon is the zon format parser as a C shared library, one of
+// libtabnassemver is the semver format parser as a C shared library, one of
 // the per-format clibs sharing the uniform ABI decided by ADR-12: the
 // same five symbols in every library, the format fixed at build time by
 // which library you load. The cgo layer in tabnas_c.go is a thin shim
@@ -24,13 +24,13 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	plug "github.com/tabnas/zon/go"
+	plug "github.com/tabnas/semver/go"
 )
 
 const (
 	templateVersion = "v1"
-	libName         = "libtabnaszon"
-	formatName      = "zon"
+	libName         = "libtabnassemver"
+	formatName      = "semver"
 	valueOut        = true
 )
 
@@ -60,14 +60,15 @@ var (
 
 var _ = &sharedMu // referenced only by opt-in constructs
 
-// newParser builds one engine with the zon grammar installed
+// newParser builds one engine with the semver grammar installed
 // NATIVELY — in-process, not via a serialized spec. That is a
 // correctness decision, not a convenience: lexing configuration is part
 // of the accepted language, and format plugins keep format-specific
 // behaviour as closures, which cannot cross a data boundary at all.
 // The body is the per-repo column of admin tasks/clib-rollout.tsv.
 func newParser() (parseFn, error) {
-	j := plug.MakeJsonic(); return j.Parse, nil
+	j := plug.Make()
+	return j.Parse, nil
 }
 
 // reply marshals a result document. Marshalling cannot fail for the
@@ -173,7 +174,7 @@ func (e *panicErr) Error() string {
 	return "internal panic"
 }
 
-// parseWith answers whether src is in the zon language — and,
+// parseWith answers whether src is in the semver language — and,
 // when the format's value is JSON-representable, what it parsed to.
 //
 // A rejection is an ANSWER, not a failure of the call: ok:true with

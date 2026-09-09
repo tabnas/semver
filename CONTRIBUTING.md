@@ -1,9 +1,9 @@
-# Contributing to zon
+# Contributing to semver
 
 Thanks for your interest in contributing! The organization-wide conventions
 in [tabnas/.github](https://github.com/tabnas/.github/blob/main/CONTRIBUTING.md) are
 canonical and apply here. This file adds what is specific to
-**tabnas/zon**.
+**tabnas/semver**.
 
 Start with [`AGENTS.md`](AGENTS.md) — it is the working guide to this
 repository for humans and agents alike.

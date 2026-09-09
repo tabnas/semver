@@ -1,4 +1,4 @@
-/* Copyright (c) 2025 Richard Rodger and other contributors, MIT License */
+/* Copyright (c) 2026 Richard Rodger and other contributors, MIT License */
 
 // Cross-runtime conformance, driven by the shared `test/spec/*.tsv` fixtures
 // at the repo root (see ../../test/AGENTS.md).
@@ -8,25 +8,18 @@
 // uses to run the SAME files — so the two implementations cannot drift
 // without one of them going red, and neither can the two loaders.
 //
-// What is left here is only what is specific to zon: how to build the
-// parser for a row's options.
+// What is left here is only what is specific to semver: how to build the
+// parser. The plugin has no options, so one instance serves every row.
 
 import { Tabnas } from '@tabnas/parser'
-import { jsonic } from '@tabnas/jsonic'
 import { findSpecDir, makeRunner } from '@tabnas/support'
 
-import { Zon } from '../dist/zon'
+import { Semver } from '../dist/semver'
+
+const tn = new Tabnas().use(Semver)
 
 makeRunner({
-  // A fresh Tabnas per row: the `opts` column is per-case, and plugin
-  // options must not leak from one row into the next.
-  parse: (input, row) => {
-    const opts = row.named('opts')
-    return new Tabnas()
-      .use(jsonic)
-      .use(Zon, '' === opts.trim() ? {} : JSON.parse(opts))
-      .parse(input)
-  },
+  parse: (input) => tn.parse(input),
 })
   // `findSpecDir` walks up from this file — `dist-test/` at runtime — to the
   // repo root's `test/spec`, so moving the suite does not mean recounting

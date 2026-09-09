@@ -10,7 +10,7 @@
 // read the file. A release that bumps package.json and forgets the constant
 // now fails here instead of shipping a lie.
 
-package tabnaszon
+package tabnassemver
 
 import (
 	"encoding/json"

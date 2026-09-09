@@ -1,315 +1,500 @@
 # Reference
 
-The complete public surface of `@tabnas/zon` (TypeScript): exports,
-the parse entry, the two options, and the exact ZON syntax accepted.
-For a guided introduction see the [tutorial](tutorial.md); for task
-recipes see the [how-to guide](guide.md); for how it works see
+The complete public surface of `@tabnas/semver` (TypeScript): the
+package, every export, the parse entry, the value, `compare`, `format`,
+`grammar`, the exact syntax accepted, the tokens, the errors. For a
+guided introduction see the [tutorial](tutorial.md); for task recipes
+see the [how-to guide](guide.md); for how it works and why see
 [concepts](concepts.md).
 
 ## Package
 
 ```bash
-npm install @tabnas/parser @tabnas/jsonic @tabnas/zon
+npm install @tabnas/parser @tabnas/abnf @tabnas/semver
 ```
 
 | | |
 |---|---|
-| Package | `@tabnas/zon` |
-| Module type | CommonJS (`main: dist/zon.js`, types `dist/zon.d.ts`) |
-| Peer deps | `@tabnas/parser` >= 2, `@tabnas/jsonic` >= 2 |
+| Package | `@tabnas/semver` |
+| Module type | CommonJS (`main: dist/semver.js`, types `dist/semver.d.ts`) |
+| Peer deps | `@tabnas/parser` >= 0, `@tabnas/abnf` >= 0 |
 | Engine | `@tabnas/parser` (Tabnas) |
-| Underlying grammar | `@tabnas/jsonic` |
+| Underlying compiler | `@tabnas/abnf` (RFC 5234 ABNF to engine rules, over `@tabnas/bnf`) |
+| Node | >= 24 |
+| CLI | none |
+
+The grammar is compiled from ABNF when the plugin is installed, not at
+build time: `@tabnas/abnf` must be resolvable at runtime.
 
 ## Exports
 
 | Export | Kind | Description |
 |---|---|---|
-| `Zon` | `Plugin` | The plugin function. Register with `engine.use(Zon, options)`. |
-| `VERSION` | `string` | This package's version, always equal to `package.json` "version". |
-| `ZonOptions` | type | The options object shape (see [Options](#options)). |
-
-`Zon.defaults` (a `ZonOptions`) holds the merged default options:
+| `Semver` | `Plugin` | The plugin function. Register with `engine.use(Semver)`. |
+| `compare` | `(a: Version, b: Version) => -1 \| 0 \| 1` | Precedence per specification section 11. See [compare](#compare). |
+| `format` | `(v: Version) => string` | A value back to its version string. See [format](#format). |
+| `grammar` | `string` | The ABNF text the plugin compiles. See [grammar](#grammar). |
+| `VERSION` | `string` | This package's version, always equal to `package.json` "version" (currently `'0.1.0'`). |
+| `Version` | type | The parse result (see [The value](#the-value)). |
+| `PrereleaseIdentifier` | type | `string \| SemverNumber` — one pre-release identifier. |
+| `SemverNumber` | type | `number \| bigint` — one integer component. |
+| `SemverOptions` | type | `Record<string, never>` — the (empty) options shape. |
 
 ```typescript
-Zon.defaults = {
-  charAsNumber: false,
-  enumTag: null,
+type SemverNumber = number | bigint
+type PrereleaseIdentifier = string | SemverNumber
+type Version = {
+  major: SemverNumber
+  minor: SemverNumber
+  patch: SemverNumber
+  prerelease: PrereleaseIdentifier[]
+  build: string[]
 }
+type SemverOptions = Record<string, never>
 ```
+
+`Semver.defaults` (a `SemverOptions`) is `{}`.
 
 ## Parse entry
 
 The plugin has **no convenience `parse()` function** of its own. You
-parse by building a Tabnas engine, layering the jsonic grammar, then
-the `Zon` plugin, and calling the engine's `.parse()`:
+parse by building a Tabnas engine, installing `Semver`, and calling the
+engine's `.parse()`:
 
 ```js
 import { Tabnas } from '@tabnas/parser'
-import { jsonic } from '@tabnas/jsonic'
-import { Zon } from '@tabnas/zon'
+import { Semver } from '@tabnas/semver'
 
-const j = new Tabnas().use(jsonic).use(Zon)
+const tn = new Tabnas().use(Semver)
 
-j.parse('.{ .a = 1 }') // => { a: 1 }
+tn.parse('1.2.3-alpha.1+build.5') // => { major: 1, minor: 2, patch: 3, prerelease: ['alpha', 1], build: ['build', '5'] }
 ```
 
-### `engine.use(Zon, options?)`
+`new Tabnas({ plugins: [Semver] })` is equivalent to `new Tabnas().use(Semver)`.
+
+### `engine.use(Semver, options?)`
 
 Registers and immediately applies the plugin. Returns the engine, so
-registrations chain (`new Tabnas().use(jsonic).use(Zon, opts)`). The
-plugin merges `options` over `Zon.defaults`, installs the embedded ZON
-grammar, and re-applies its jsonic option overrides (struct/tuple
-tokens, `=` separator, identifier keys, Zig escapes, ZON comments, the
-strict Zig number lexer, and the five custom lex matchers).
-
-The instance is reusable and stateless across parses; build it once
-and reuse it. Building the grammar dominates a parse, so do not
-reconstruct the engine per call.
+registrations chain. `options` is optional and unused: the plugin
+reads no option (see [Options](#options)). Installing compiles the
+embedded ABNF (`grammar`) with `@tabnas/abnf` — start rule `semver`, group tag
+`semver` — into the engine's rule set, attaches the one semantic action
+(an after-close hook on `semver`, `@semver:ac`, which replaces the parse
+tree with the `Version` built from the accepted text), applies the lexer
+settings under [Tokens](#tokens), and sets the `hint` under
+[Errors](#errors). Compiling is the expensive step; build one instance
+and reuse it (see [Performance](#performance)).
 
 ### `engine.parse(src)`
 
-Parses a ZON source string and returns the resulting JavaScript value.
-Objects come back as maps built with `Object.create(null)` (no
-prototype); arrays are plain arrays; scalars are `number`, `string`,
-`boolean`, or `null` — plus `bigint` for an integer literal too large to
-be an exact double. A failed parse throws (see [Errors](#errors)).
+Parses one version string and returns a `Version`. The whole of `src`
+must be a single version: there is no leading or trailing whitespace, no
+line end, no prefix and nothing after the version. A rejected string,
+the empty string included, throws (see [Errors](#errors)).
 
 ## Options
 
-`ZonOptions` has exactly two fields:
+There are none. `SemverOptions` is `Record<string, never>`: a value
+annotated with it can only be `{}`, and `Semver.defaults` is `{}`. The
+engine's `use` types its second argument as `Record<string, any>` (and
+the engine's `Plugin` signature types it `any`), so a stray key in
+`tn.use(Semver, { ... })` is not a compile-time error; the plugin
+ignores whatever options object it is given.
+
+## The value
+
+`engine.parse` returns a plain object (prototype `Object.prototype`)
+with exactly these five keys, in this order:
+
+| Field | Type | Contents |
+|---|---|---|
+| `major` | `SemverNumber` | MAJOR, an integer. |
+| `minor` | `SemverNumber` | MINOR, an integer. |
+| `patch` | `SemverNumber` | PATCH, an integer. |
+| `prerelease` | `PrereleaseIdentifier[]` | The pre-release identifiers, left to right; `[]` when the version has no `-` part. |
+| `build` | `string[]` | The build identifiers, left to right; `[]` when the version has no `+` part. |
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+tn.parse('1.0.0') // => { major: 1, minor: 0, patch: 0, prerelease: [], build: [] }
+tn.parse('1.0.0-0.3.7') // => { major: 1, minor: 0, patch: 0, prerelease: [0, 3, 7], build: [] }
+tn.parse('1.0.0-x-y-z.--') // => { major: 1, minor: 0, patch: 0, prerelease: ['x-y-z', '--'], build: [] }
+tn.parse('1.0.0-alpha+001') // => { major: 1, minor: 0, patch: 0, prerelease: ['alpha'], build: ['001'] }
+tn.parse('1.0.0+21AF26D3----117B344092BD') // => { major: 1, minor: 0, patch: 0, prerelease: [], build: ['21AF26D3----117B344092BD'] }
+Object.keys(tn.parse('1.0.0')) // => ['major', 'minor', 'patch', 'prerelease', 'build']
+```
+
+### Integers: `number` up to 2^53 - 1, `bigint` beyond
+
+`major`, `minor`, `patch` and every numeric pre-release identifier are
+a `number` when the value is at most `Number.MAX_SAFE_INTEGER`
+(9007199254740991) and a `bigint` above it. The switch is per
+component, so one value can mix the two. The specification places no
+upper bound on an integer; the plugin never rounds.
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+tn.parse('9007199254740991.0.0').major // => 9007199254740991
+tn.parse('9007199254740992.0.0').major // => 9007199254740992n
+typeof tn.parse('9007199254740992.0.0').major // => 'bigint'
+tn.parse('1.0.0-9007199254740993').prerelease // => [9007199254740993n]
+```
+
+`JSON.stringify` throws on a `bigint`; use `format` when a value with a
+`bigint` component has to travel as text.
+
+### Pre-release identifiers: numeric or string
+
+A pre-release identifier made only of digits is numeric (a `number` or
+`bigint`, as above); the grammar has already rejected a leading zero in
+that case (`1.2.3-01` does not parse). Every other identifier is a
+string, including ones that begin with digits (`'1a'`, `'01a'`,
+`'007a'`) and ones that are only hyphens (`'-'`, `'--'`). The
+distinction is the specification's own: section 11.4 compares the two
+kinds differently.
+
+### Build identifiers: always strings
+
+`build` holds strings only, whatever the identifier looks like:
+`'001'`, `'0'`, `'20130313144700'`. Leading zeros are kept, and build
+metadata takes no part in precedence.
+
+## compare
 
 ```typescript
-type ZonOptions = {
-  charAsNumber: boolean
-  enumTag: null | string
-}
+function compare(a: Version, b: Version): -1 | 0 | 1
 ```
 
-### `charAsNumber`
+Returns `-1` when `a` has lower precedence than `b`, `1` when higher,
+`0` when the two have the same precedence. The rules are those of
+specification section 11, applied in this order:
 
-- **Type:** `boolean`
-- **Default:** `false`
-- **Effect:** Controls how Zig character literals (`'x'`, `'\n'`,
-  `'\x41'`, `'\u{1F600}'`) are parsed.
-  - `false` — the literal becomes a one-character string. `'A'` → `'A'`.
-  - `true` — the literal becomes its numeric Unicode code point. `'A'`
-    → `65`, `'\n'` → `10`, `'\u{1F600}'` → `128512`.
+1. `major`, then `minor`, then `patch`, compared numerically (11.2). A
+   `number` and a `bigint` compare correctly with each other.
+2. With an equal core, a version that has a pre-release part ranks
+   **below** the version without one (11.3).
+3. With both having a pre-release part, identifiers are compared left to
+   right, stopping at the first difference (11.4):
+   - two numeric identifiers compare numerically (11.4.1);
+   - two alphanumeric identifiers compare lexically in ASCII order
+     (11.4.2) — so `'Z'` ranks below `'a'`;
+   - a numeric identifier ranks below an alphanumeric one (11.4.3);
+   - when every identifier of the shorter list equals its counterpart,
+     the longer list ranks higher (11.4.4).
+4. `build` is ignored entirely (sections 10 and 11.1): `1.0.0+a` and
+   `1.0.0+b` compare `0`.
 
 ```js
 import { Tabnas } from '@tabnas/parser'
-import { jsonic } from '@tabnas/jsonic'
-import { Zon } from '@tabnas/zon'
+import { Semver, compare } from '@tabnas/semver'
 
-const j = new Tabnas().use(jsonic).use(Zon, { charAsNumber: true })
-j.parse("'A'") // => 65
+const tn = new Tabnas().use(Semver)
+
+compare(tn.parse('1.0.0-alpha'), tn.parse('1.0.0-alpha.1')) // => -1
+compare(tn.parse('1.0.0-alpha.1'), tn.parse('1.0.0-alpha.beta')) // => -1
+compare(tn.parse('1.0.0-beta.2'), tn.parse('1.0.0-beta.11')) // => -1
+compare(tn.parse('1.0.0-1'), tn.parse('1.0.0-a')) // => -1
+compare(tn.parse('1.0.0-Z'), tn.parse('1.0.0-a')) // => -1
+compare(tn.parse('1.0.0-rc.1'), tn.parse('1.0.0')) // => -1
+compare(tn.parse('1.0.0+a'), tn.parse('1.0.0+b')) // => 0
+compare(tn.parse('2.1.1'), tn.parse('2.1.0')) // => 1
 ```
 
-### `enumTag`
+The specification's own chain holds in full: `1.0.0-alpha` <
+`1.0.0-alpha.1` < `1.0.0-alpha.beta` < `1.0.0-beta` < `1.0.0-beta.2` <
+`1.0.0-beta.11` < `1.0.0-rc.1` < `1.0.0`, and `1.0.0` < `2.0.0` <
+`2.1.0` < `2.1.1`. `compare` is a consistent comparator — a total
+preorder, since versions that differ only in build metadata compare
+`0` — and can be passed to `Array.prototype.sort` as is. It does not
+validate its arguments: pass values that came from `parse` or that
+satisfy `Version`.
 
-- **Type:** `null | string`
-- **Default:** `null`
-- **Effect:** Controls how enum-literal *values* (a bare `.foo` used in
-  value position) are represented.
-  - `null` — the enum literal becomes the bare identifier string.
-    `.red` → `'red'`.
-  - a string `T` — the enum literal is wrapped in a one-key object
-    `{ [T]: name }`, so it can be distinguished from an ordinary
-    string. With `enumTag: '$enum'`, `.red` → `{ $enum: 'red' }`.
+## format
 
-The tag affects enum literals only when they are *values*. A `.field`
-used as a key (before `=`) is always the plain field name regardless of
-`enumTag`.
+```typescript
+function format(v: Version): string
+```
+
+Renders `major.minor.patch`, then `-` and the pre-release identifiers
+joined with `.` when `prerelease` is non-empty, then `+` and the build
+identifiers joined with `.` when `build` is non-empty. A `bigint`
+renders as plain digits (no `n`). For a value that came out of `parse`
+the result is exactly the input string. `format` does not validate its
+argument.
 
 ```js
 import { Tabnas } from '@tabnas/parser'
-import { jsonic } from '@tabnas/jsonic'
-import { Zon } from '@tabnas/zon'
+import { Semver, format } from '@tabnas/semver'
 
-const j = new Tabnas().use(jsonic).use(Zon, { enumTag: '$enum' })
-j.parse('.{ .kind = .red, .label = "red" }') // => { kind: { $enum: 'red' }, label: 'red' }
+const tn = new Tabnas().use(Semver)
+
+format(tn.parse('1.0.0-beta+exp.sha.5114f85')) // => '1.0.0-beta+exp.sha.5114f85'
+format(tn.parse('9007199254740992.0.0')) // => '9007199254740992.0.0'
+format({ major: 1n, minor: 0, patch: 0, prerelease: ['rc', 1n], build: ['a'] }) // => '1.0.0-rc.1+a'
 ```
 
-## ZON syntax
+## grammar
 
-ZON is **not** a superset of JSON. It uses Zig anonymous-struct
-syntax. The plugin disables the bare `{`, `[`, `]` openers and rebinds
-the key/value separator to `=`.
-
-### Structs (maps)
-
-A struct literal opens with `.{`, contains `.field = value` pairs
-separated by commas, and closes with `}`. Field names are identifiers
-(`[A-Za-z_][A-Za-z0-9_]*`), written with a leading dot that is
-stripped from the key. A name that is not a legal identifier is written
-`.@"..."` — any string literal, with the same escapes — and a struct may
-not repeat a field name.
-
-```
-.{ .a = 1, .b = 2 }     => { a: 1, b: 2 }
-.{ .a = .{ .b = 1 } }   => { a: { b: 1 } }
-.{ .@"a b" = 1 }        => { 'a b': 1 }
-.{ .a = 1, .a = 2 }     => error: duplicate struct field name
+```typescript
+const grammar: string
 ```
 
-### Tuples (lists)
+The text of [`semver-grammar.abnf`](../../semver-grammar.abnf),
+comments included, exactly as the plugin compiles it: the embedded copy
+is the file's content preceded by one newline (`grammar === '\n' +
+file`). It is exported for tooling (documentation, railroad diagrams, a
+second compiler); it is a plain string constant, not a hook — the plugin
+compiles the same embedded literal and reads nothing back from the
+export.
 
-A tuple literal also opens with `.{`, but contains bare values (no
-`.field =`), separated by commas, and closes with `}`. It produces an
-array.
+```js
+import { grammar, VERSION } from '@tabnas/semver'
 
-```
-.{ 1, 2, 3 }            => [1, 2, 3]
-.{ "a", "b" }           => ['a', 'b']
-.{ .{ 1, 2 }, .{ 3, 4 } } => [[1, 2], [3, 4]]
-```
-
-The struct-vs-tuple decision is made at lex time by peeking past the
-`.{`: if the next significant token is a field name (`.identifier` or
-`.@"..."`) followed by `=`, it is a struct; otherwise it is a tuple.
-
-### Empty literal
-
-An empty `.{}` parses as an **empty array** (`[]`), since with no
-contents there is no `.field =` to mark it as a struct.
-
-```
-.{}                     => []
+typeof grammar // => 'string'
+/^valid-semver = version-core \[ "-" pre-release \] \[ "\+" build \]$/m.test(grammar) // => true
+/^\d+\.\d+\.\d+$/.test(VERSION) // => true
 ```
 
-### Trailing commas
+## Syntax accepted
 
-A trailing comma before `}` is allowed in both structs and tuples.
+The language is exactly that of the specification's grammar (section
+"Backus–Naur Form Grammar for Valid SemVer Versions"). These are the
+productions the plugin compiles, comments stripped; every name is the
+specification's, with spaces written as hyphens:
 
+```abnf
+semver                 = valid-semver
+valid-semver           = version-core [ "-" pre-release ] [ "+" build ]
+version-core           = major "." minor "." patch
+major                  = numeric-identifier
+minor                  = numeric-identifier
+patch                  = numeric-identifier
+pre-release            = pre-release-identifier *( "." pre-release-identifier )
+build                  = build-identifier *( "." build-identifier )
+pre-release-identifier = "0" [ *digit alphanumeric-tail ]
+                       / positive-digit *digit [ alphanumeric-tail ]
+                       / alphanumeric-tail
+alphanumeric-tail      = non-digit *identifier-character
+build-identifier       = 1*identifier-character
+numeric-identifier     = "0" / positive-digit *digit
+identifier-character   = digit / non-digit
+non-digit              = letter / "-"
+digit                  = "0" / positive-digit
+positive-digit         = %x31-39
+letter                 = %x41-5A / %x61-7A
 ```
-.{ .a = 1, }            => { a: 1 }
-.{ 1, 2, 3, }           => [1, 2, 3]
-```
 
-### Scalars
+`semver` is an alias of `valid-semver` and the start rule. Two
+productions differ from the specification in shape but not in language:
+`pre-release-identifier` is factored on its first character, and
+`build-identifier` is `1*identifier-character`, the union of the
+specification's `<alphanumeric identifier>` and `<digits>`. The grammar
+file explains both.
 
-| Construct | Example | Result |
+Accepted, with the value produced:
+
+| Input | `prerelease` | `build` |
 |---|---|---|
-| Integer | `42` | `42` |
-| Float | `3.14` | `3.14` |
-| Hex | `0x2a` | `42` |
-| Octal | `0o52` | `42` |
-| Binary | `0b101010` | `42` |
-| Hex float | `0x1.8p1` | `3` |
-| Exponent | `1e5`, `12_3.0E+77` | `100000`, `1.23e+79` |
-| Digit separator | `1_000_000` | `1000000` |
-| Infinity / NaN | `inf`, `-inf`, `nan` | `Infinity`, `-Infinity`, `NaN` |
-| Big integer | `36893488147419103231` | `36893488147419103231n` (a `bigint`) |
-| Boolean | `true`, `false` | `true`, `false` |
-| Null | `null` | `null` |
-| String | `"hello"` | `'hello'` |
-| Enum literal | `.red`, `.@"a b"` | `'red'`, `'a b'` (or `{ tag: ... }`) |
-| Char literal | `'A'` | `'A'` (or `65`) |
+| `1.0.0` | `[]` | `[]` |
+| `1.0.0-alpha` | `['alpha']` | `[]` |
+| `1.0.0-alpha.1` | `['alpha', 1]` | `[]` |
+| `1.0.0-0.3.7` | `[0, 3, 7]` | `[]` |
+| `1.0.0-x.7.z.92` | `['x', 7, 'z', 92]` | `[]` |
+| `1.0.0-x-y-z.--` | `['x-y-z', '--']` | `[]` |
+| `1.0.0-1a` | `['1a']` | `[]` |
+| `1.0.0-01a` | `['01a']` | `[]` |
+| `1.0.0-alpha+001` | `['alpha']` | `['001']` |
+| `1.0.0+20130313144700` | `[]` | `['20130313144700']` |
+| `1.0.0-beta+exp.sha.5114f85` | `['beta']` | `['exp', 'sha', '5114f85']` |
+| `1.0.0+21AF26D3----117B344092BD` | `[]` | `['21AF26D3----117B344092BD']` |
+| `1.0.0+01` | `[]` | `['01']` |
 
-### Numbers are Zig numbers, not relaxed-JSON numbers
+Rejected, every one with error code `unexpected`:
 
-The plugin replaces jsonic's number lexer with one that implements Zig's
-literal grammar exactly, so ZON's strictness is preserved:
+| Input | Why |
+|---|---|
+| `` (empty) | Not a version. |
+| `1`, `1.2`, `1.2.3.4` | The core is exactly three components. |
+| `01.2.3`, `1.02.3` | Leading zero in a core component. |
+| `v1.2.3` | No prefix of any kind. |
+| ` 1.2.3`, `1.2.3 `, `1.2.3\n` | No whitespace or line end anywhere. |
+| `1.2.3-`, `1.2.3+`, `1.2.3-a..b` | No empty identifier. |
+| `1.2.3-01` | Leading zero in a numeric pre-release identifier. |
+| `1.2.3-a_b`, `1.2.3-α` | Only `[0-9A-Za-z-]` in an identifier. |
+| `1.2.3+a+b` | One `+` only. |
 
-```
-+1      .5      5.      0123      00      -0
-1__0    1_      _1      0x_2A     0X2A    0O52
-0b12    0o18    1abc    1e        0b1.1   0.1.2
-```
+The shared fixtures under [`test/spec/`](../../test/spec/) list many
+more of each kind.
 
-are all **rejected**, as the zig compiler rejects them. A leading `-` is a
-negation prefix and may be separated by space (`- 1`); `-nan` is not a
-literal. An integer whose exact value does not fit an IEEE-754 double is
-returned as a `bigint` rather than silently rounded — everything else is a
-`number`.
-
-### Strings
-
-Double-quoted strings only (single quotes are reserved for char
-literals). Zig-flavoured escapes are recognised: `\n`, `\r`, `\t`,
-`\\`, `\"`, `\'`. Unknown escapes are an error.
-
-```
-"hello"                 => 'hello'
-"a\nb"                  => 'a\nb'
-"a\\b"                  => 'a\b'
-```
-
-### Multi-line strings
-
-Consecutive lines beginning with `\\` form one string. Each line
-contributes its text after the `\\`; lines are joined with `\n`. Zig's
-tokenizer lexes the whole run as one token and skips the whitespace
-between the lines, so **blank lines inside the run continue the literal**
-(contributing an empty line) rather than ending it.
-
-```
-\\hello
-\\world                 => 'hello\nworld'
-```
-
-### Character literals
-
-Single-quoted Zig char literals: a single character, or an escape
-`'\n'` `'\r'` `'\t'` `'\\'` `'\''` `'\"'` `'\0'`, a hex escape
-`'\xNN'`, or a Unicode escape `'\u{...}'`. By default the result is a
-one-character string; with `charAsNumber: true` it is the numeric code
-point.
-
-```
-'A'                     => 'A'   (or 65 with charAsNumber)
-'\n'                    => '\n'  (or 10)
-'\u{1F600}'             => '😀'  (or 128512)
-```
-
-### Comments
-
-`//` line comments only. They are discarded. `//!` and `///` are Zig
-**doc** comments, which ZON rejects; `////` (four or more slashes) is an
-ordinary comment again.
-
-```
-.{
-  // a comment
-  .name = "x", // trailing comment
-}                       => { name: 'x' }
-```
-
-(Jsonic's `#` hash comments and `/* */` block comments are disabled by
-the plugin.)
+Note: the published `@tabnas/bnf` (0.1.10) does not yet mark
+character-class tokens eager, which is what lets the letter in
+`1.0.0-01a` or `1.0.0-12a` (digits then a non-digit in a pre-release
+identifier) be lexed after a digit run. The plugin sets the flag itself
+after compiling, so an isolated `npm install` from the registry accepts
+them as the grammar says; the upstream fixes and the reason the port is
+enough for this grammar are in
+[concepts](concepts.md#a-note-on-two-toolchain-fixes) and in
+[`AGENTS.md`](../../AGENTS.md), "The tabnas engine dependency".
 
 ## Tokens
 
-The plugin's lexer produces these tokens (as surfaced in the railroad
-diagram legend):
+The compiled grammar brings seven tokens of its own. One character is
+one token; there are no multi-character tokens.
 
-| Token | Source | Meaning |
-|---|---|---|
-| `#OB` | `.{` | start of a struct (map) |
-| `#OS` | `.{` | start of a tuple (list) |
-| `#CB` | `}` | close of struct or tuple |
-| `#CL` | `=` | key/value separator |
-| `#TX` | `.ident`, `.@"..."` | field name (key) or enum literal (value) |
-| `VAL` | — | a value: number, string, `true`/`false`/`null`, or `.enum` |
+| Token | Source | Kind | Grammar use |
+|---|---|---|---|
+| `#0` | `0` | fixed | the literal `"0"` |
+| `#T` | `.` | fixed | the separator `"."` |
+| `#T1` | `-` | fixed | the pre-release opener and the identifier character `"-"` |
+| `#T2` | `+` | fixed | the build opener `"+"` |
+| `#RX___U0031__U0039` | `[1-9]` | match (regex class) | `positive-digit` |
+| `#RX___U0041__U005A` | `[A-Z]` | match (regex class) | `letter` |
+| `#RX___U0061__U007A` | `[a-z]` | match (regex class) | `letter` |
 
-`{`, `[`, and `]` are **not** tokens — they are removed, so a bare `{`
-is a syntax error.
+Everything the engine lexes by default is switched off: `space`,
+`line`, `comment`, `string`, `number`, `text` and `value` are all
+`lex: false`. The engine's six JSON punctuation tokens — `#OB` `{`,
+`#CB` `}`, `#OS` `[`, `#CS` `]`, `#CL` `:`, `#CA` `,` — are unbound
+(their names stay registered, so introspection still lists them, but no
+source text produces them). `lex.empty` is `false`, so the empty string
+is an error rather than the engine's default `undefined`.
+
+The effect: a character the grammar does not name — a blank, a tab, a
+newline, a quote, a `#`, a `v` — has no matcher at all and is reported
+as `unexpected` where it stands, never skipped as whitespace or
+swallowed as a comment or string.
 
 ## Grammar group tag
 
-Every grammar alternate the plugin adds carries the group tag `zon`.
-Callers can switch the ZON alts off (restoring plain jsonic) via
-`rule.exclude: 'zon'`:
+Every alternative the plugin installs carries the group tag `semver`
+(the `tag` passed to the ABNF compiler). Excluding the group with the
+engine's `rule.exclude` option removes all of them, after which every
+parse fails:
 
-```typescript
-const j = new Tabnas().use(jsonic).use(Zon).options({
-  rule: { exclude: 'zon' },
-})
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+tn.options({ rule: { exclude: 'semver' } })
+
+let code
+try { tn.parse('1.2.3') } catch (e) { code = e.code }
+code // => 'unexpected'
 ```
+
+`engine.options(...)` returns the merged options object, not the
+engine. The one alternative in any other group is the compiler's
+end-of-source alternative on its `__start__` wrapper, tagged
+`semver,end`.
 
 ## Errors
 
-A failed parse throws the engine's standard parse error. It carries
-the usual fields — an error `code`, the source location (`row`, `col`,
-`pos`), the offending `src` fragment, and a formatted multi-line
-`message` with a source-context extract. Inputs that are valid jsonic
-but not valid ZON (such as a bare `{` opener) are errors.
+Every rejection throws the engine's `TabnasError`, a subclass of
+`SyntaxError` (`err.name === 'SyntaxError'`), and every rejection has
+the same code, **`unexpected`**: the grammar had no alternative for the
+next character. Fields on the thrown object:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `code` | `string` | Always `'unexpected'`. |
+| `lineNumber` | `number` | Line of the offending character, 1-based. |
+| `columnNumber` | `number` | Column of the offending character, 1-based. |
+| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
+
+The engine also sets `fileName` (`undefined` here), `details` and `meta`
+(both `{}` here) and a `txts` accessor on the object; the JSON form
+below is the structured shape.
+
+`JSON.stringify(err)` gives the structured diagnostic:
+
+| Key | Contents |
+|---|---|
+| `status` | `'failure'` |
+| `code` | `'unexpected'` |
+| `message` | The one-line description, `unexpected character(s): <char>`. |
+| `hint` | The plugin's explanation of what a version must look like (below). |
+| `row`, `col` | Position of the offending character, 1-based. |
+| `pos` | Offset of the offending character, 0-based. |
+| `len` | Length of the offending text (`0` when the input ended too early). |
+| `rule` | The rule active at the failure — often one of the compiler's helper rules (`_gen48_star_digit`, say) or its `__start__` wrapper. |
+| `ruleStack` | The rule names from `__start__` down to `rule`. |
+| `token` | `{ name, src }`: the token the lexer produced and its source text. When the input ended too early it is the end token `#ZZ` with `src` `''` (the empty string reports an empty `name` too). |
+| `expected` | The token names the active rule could have accepted. |
+| `src` | The source text. |
+| `plugins` | `['Semver']`. |
+| `version` | The engine version. |
+
+```js
+import { Tabnas } from '@tabnas/parser'
+import { Semver } from '@tabnas/semver'
+
+const tn = new Tabnas().use(Semver)
+
+let err
+try { tn.parse('1.2.3-a_b') } catch (e) { err = e }
+
+err instanceof SyntaxError // => true
+err.code // => 'unexpected'
+err.lineNumber // => 1
+err.columnNumber // => 8
+err.message.includes('unexpected character(s): _') // => true
+err.message.includes('https://semver.org/spec/v2.0.0.html') // => true
+
+const diag = JSON.parse(JSON.stringify(err))
+diag.status // => 'failure'
+diag.message // => 'unexpected character(s): _'
+diag.col // => 8
+diag.pos // => 7
+diag.token // => { name: '#BD', src: '_' }
+diag.src // => '1.2.3-a_b'
+
+let empty
+try { tn.parse('') } catch (e) { empty = e.code }
+empty // => 'unexpected'
+```
+
+The hint, with `{src}` replaced by the offending character(s):
+
+```text
+The character(s) {src} do not match any rule alternative active at
+this position.
+
+A Semantic Version is MAJOR.MINOR.PATCH — three integers with no
+leading zeros — optionally followed by -PRERELEASE and +BUILD, each a
+dot-separated list of non-empty identifiers made of [0-9A-Za-z-],
+where a numeric pre-release identifier has no leading zero. Nothing
+else is allowed: no whitespace, no "v" prefix, no empty identifier.
+See https://semver.org/spec/v2.0.0.html
+```
+
+The code is the contract; the position is not. At a lookahead failure
+(`01.2.3`, say) the reported column may differ from the Go port's and
+may move with a compiler change; the shared fixtures pin
+`ERROR:unexpected` only.
+
+There are **no plugin-specific error codes**: every rejection is the
+engine's base `unexpected`, and the hint carries the explanation.
+`tabnas.plugin.json` lists an empty `errorCodes`. The reason — the
+grammar is the sole acceptor, and the ABNF compiler offers no safe place
+for an error production — is in
+[concepts](concepts.md#why-there-are-no-error-codes) and in
+[`AGENTS.md`](../../AGENTS.md), "Error codes".
+
+## Performance
+
+Installing the plugin compiles the ABNF into the engine's rule set (150
+rules): roughly 50–75 ms on a typical machine. A parse on an installed
+engine is on the order of 100 µs. The two differ by roughly three
+orders of magnitude, so build one instance — at module load, say — and
+reuse it for every parse; the instance holds no per-parse state. There
+is no module-level cached instance and no convenience `parse()` in this
+package; the engine is yours to build and keep.

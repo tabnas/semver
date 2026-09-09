@@ -1,5 +1,5 @@
-# Syntax highlighting for .jsonic files
-*.jsonic linguist-language=CUE
+# Syntax highlighting for the ABNF grammar
+*.abnf linguist-language=ABNF
 
 # Preserve line endings in test fixtures - some tests depend on specific line endings
 test/fixtures/*.csv binary

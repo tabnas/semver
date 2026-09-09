@@ -1,6 +1,6 @@
-// Copyright (c) 2025 Richard Rodger and other contributors, MIT License
+// Copyright (c) 2026 Richard Rodger and other contributors, MIT License
 
-package tabnaszon
+package tabnassemver
 
 // parity_test.go — cross-runtime conformance, driven by the shared
 // `test/spec/*.tsv` fixtures at the repo root (see ../test/AGENTS.md).
@@ -11,14 +11,13 @@ package tabnaszon
 // implementations cannot drift without one of them going red, and neither
 // can the two loaders.
 //
-// What is left here is only what is specific to zon: how to build the
-// parser for a row's options, and how to flatten a result for comparison.
+// What is left here is only what is specific to semver: how to build the
+// parser, and how to flatten a result for comparison.
 
 import (
 	"encoding/json"
 	"testing"
 
-	jsonic "github.com/tabnas/jsonic/go"
 	support "github.com/tabnas/support/go"
 )
 
@@ -31,21 +30,13 @@ func TestSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	support.Runner{
-		// A fresh parser per row: the `opts` column is per-case, and
-		// plugin options must not leak from one row into the next.
-		ParseRow: func(input string, row *support.Row) (any, error) {
-			opts := map[string]any{}
-			if raw := row.Named("opts"); "" != raw {
-				if err := json.Unmarshal([]byte(raw), &opts); err != nil {
-					return nil, err
-				}
-			}
+	// One instance for every row: the plugin has no options, so nothing
+	// can leak between rows, and rebuilding the grammar per row would
+	// only make the suite slow.
+	j := Make()
 
-			j := jsonic.Make()
-			if err := j.UseDefaults(Zon, Defaults, opts); err != nil {
-				return nil, err
-			}
+	support.Runner{
+		Parse: func(input string) (any, error) {
 			return j.Parse(input)
 		},
 

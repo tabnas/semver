@@ -1,0 +1,20 @@
+input	expected
+# The version core: MAJOR.MINOR.PATCH, three numeric identifiers.
+0.0.0	{"major":0,"minor":0,"patch":0,"prerelease":[],"build":[]}
+1.2.3	{"major":1,"minor":2,"patch":3,"prerelease":[],"build":[]}
+10.20.30	{"major":10,"minor":20,"patch":30,"prerelease":[],"build":[]}
+100.200.300	{"major":100,"minor":200,"patch":300,"prerelease":[],"build":[]}
+# A zero is a numeric identifier on its own; only a LEADING zero is banned.
+0.10.0	{"major":0,"minor":10,"patch":0,"prerelease":[],"build":[]}
+10.0.10	{"major":10,"minor":0,"patch":10,"prerelease":[],"build":[]}
+1.0.0	{"major":1,"minor":0,"patch":0,"prerelease":[],"build":[]}
+9.9.9	{"major":9,"minor":9,"patch":9,"prerelease":[],"build":[]}
+# The specification puts no upper bound on an integer; these are exact
+# and still within Number.MAX_SAFE_INTEGER (2^53 - 1), so a number in
+# both runtimes. Larger values become bigint / *big.Int, which JSON
+# cannot carry — those cases live in ts/test/semver.test.ts and
+# go/semver_test.go.
+9007199254740991.0.0	{"major":9007199254740991,"minor":0,"patch":0,"prerelease":[],"build":[]}
+0.9007199254740991.0	{"major":0,"minor":9007199254740991,"patch":0,"prerelease":[],"build":[]}
+0.0.9007199254740991	{"major":0,"minor":0,"patch":9007199254740991,"prerelease":[],"build":[]}
+1234567890.987654321.1122334455	{"major":1234567890,"minor":987654321,"patch":1122334455,"prerelease":[],"build":[]}
