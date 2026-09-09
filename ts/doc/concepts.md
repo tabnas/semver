@@ -104,10 +104,13 @@ grammar, 150 rules over seven tokens:
 | the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
 One character is one token, because the grammar names only single
-characters. Helper and chain rules flatten: their text rolls up into the
-enclosing named rule's `src` and they add no node. Every named
-production survives by name — the `debug-model` test asserts as much —
-but not every one of them takes part in a parse.
+characters. Helper and chain rules flatten: in the `{rule, src, kids}`
+tree the compiler's own actions would build, their text rolls up into
+the enclosing named rule's `src` and they add no node — though the
+plugin installs those rules without those actions, and builds no tree
+at all (below). Every named production survives by name — the
+`debug-model` test asserts as much — but not every one of them takes
+part in a parse.
 
 ### Leading references are inlined
 
@@ -125,24 +128,48 @@ lifecycle hook, while `minor`, `patch` and every identifier after the
 first do. The one shape the substitution leaves alone is a pure alias —
 a production that is nothing but a single reference, outside any cycle,
 such as `semver = valid-semver` or `minor = numeric-identifier` — which
-is why `semver` survives to push `valid-semver` and to carry the hook
-below. So the parse tree is not the grammar tree, and which rules the
-compiler keeps is a property of the compiler, not of the specification;
-a value built by walking the tree would be coupled to that detail.
+is why `semver` survives to push `valid-semver`. So the parse tree is
+not the grammar tree, and which rules the compiler keeps is a property
+of the compiler, not of the specification; a value built by walking the
+tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
-The plugin has one semantic action, registered as `@semver:ac` — the
-after-close phase of the start rule. When `semver` closes, its node's
-`src` is the text every terminal under it matched, and because every
-default lexer is off (below) that is the whole input, character for
-character. The grammar has just proven the text well-formed, so the
-action splits it at the separators without checking anything: the first
-`+` opens the build metadata (no identifier contains `+`); before it,
-the first `-` opens the pre-release (the version core contains no `-`);
-`.` separates identifiers, which never contain it. The action replaces
-the compiler's `{rule, src, kids}` node with the `Version` object, and
-the `__start__` wrapper bubbles it up as the result.
+The plugin asks for no parse tree. `toRecognitionSpec` — `@tabnas/bnf`'s,
+re-exported by `@tabnas/abnf` — takes the converted spec and gives back
+the same 150 rules over the same seven tokens with every AST-building
+action dropped: 1,567 of the 1,608 alternatives carry one on the way out
+of the compiler, and none do on the way into the engine. The rules, the
+tokens and the accepted language are untouched; what goes is the
+`{rule, src, kids}` node each rule would otherwise leave behind.
+
+That is not a matter of taste. Every `*` and `1*` repetition compiles to
+a chain of per-character helper rules, and each level of the chain
+re-appends its child's `src` and re-copies its `kids`, so building the
+tree costs time and memory quadratic in an identifier's length:
+`1.0.0-` and 16,000 letters took about 8 s and 2.7 GB, and 32,000
+letters filled the V8 heap and killed the process outright, which no
+`try` can catch. Those are valid versions — the specification bounds
+neither the length of an identifier nor how many a version has — so the
+tree was a denial of service on strings the grammar accepts. With it
+gone the same 32,000 characters parse in about 0.2 s and some 60 MB, and
+cost grows with the length of the input rather than with its square:
+four times the identifier costs about four times the time, not
+sixteen. `perf.test.ts` pins both.
+
+What remains is one semantic action, on the compiler's end-of-source
+wrapper: the rule named by `spec.options.rule.start`, which for this
+grammar is `__start__`. It opens by pushing `semver` and closes on the
+end token `#ZZ` and nothing else, so when it closes the whole source has
+been accepted and `ctx.src()` — the text being parsed — IS the accepted
+version, character for character; every default lexer is off (below), so
+nothing was skipped on the way in. The grammar has just proven the text
+well-formed, so the action splits it at the separators without checking
+anything: the first `+` opens the build metadata (no identifier contains
+`+`); before it, the first `-` opens the pre-release (the version core
+contains no `-`); `.` separates identifiers, which never contain it. The
+`Version` it builds becomes that rule's node, which is what `parse`
+returns.
 
 ```js
 import { Tabnas } from '@tabnas/parser'
@@ -158,15 +185,19 @@ Because the value is a function of the accepted text alone, `format`
 gives the input back exactly, and the plugin is immune to which rules
 the compiler inlines.
 
-**Why the hook hangs on `semver`, not `valid-semver`.** The `semver`
-production is a pure alias of the specification's root, and exists for
-one reason. `attachActions` turns `@semver:ac` into the engine's
-`@semver-ac` function reference, and the published TypeScript engine
-(0.9.0) derived the phase of such a reference by splitting at the
-*first* hyphen: `@valid-semver-ac` was read as the phase `semver-ac`
-and threw at install. The engine has since been fixed, and the Go
-engine never had the bug, but the one unhyphenated name keeps the plugin
-working on the engine already published, and costs nothing.
+**Why the hook hangs on the wrapper, not on `semver`.** `semver` closes
+as soon as a version has been read, which is not the moment the input
+ends. For `1.2.3f` it closes on `1.2.3`, before the engine reaches the
+`f` it is going to reject, and `ctx.src()` there is the whole input, `f`
+and all: a value built at that point would describe a string the parse
+is about to throw out — and this one would not even get that far, since
+`BigInt('3f')` raises a bare `SyntaxError` through the engine. The
+wrapper cannot close early, having no alternative but the end of the
+source, and it is also the only place left that can carry the value: with
+no tree, nothing bubbles a child rule's node up to the result. The
+`semver` alias is still the entry production — the name the grammar, the
+fixtures and the diagnostics all use, kept as a rule of its own by the
+pure-alias exemption above — but it is a name now, not a mechanism.
 
 ## The value decisions
 

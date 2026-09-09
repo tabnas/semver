@@ -83,10 +83,14 @@ The plugin function, of the engine's `tabnas.Plugin` type
 `j.Use(Semver)` or `j.UseDefaults(Semver, Defaults)`; the options map is
 ignored, as there are no options. Installing compiles `Grammar` with
 `abnf.Abnf(grammarText, &abnf.AbnfConvertOptions{Start: "semver", Tag: "semver"})`,
-attaches the plugin's one action — `@semver:ac`, an after-close hook on
-the `semver` rule that replaces the parse tree with the value — and
-applies the [lexer configuration](#tokens-and-lexer-configuration) and
-the `unexpected` [hint](#errors), all through one `j.Grammar(spec)` call.
+strips the compiler's tree-building actions out of the spec so that no
+parse tree is built, attaches the plugin's one action — an after-close
+hook on `__start__`, the compiler's end-of-source wrapper, which builds
+the value from the accepted text (see
+[concepts](concepts.md#why-the-value-is-built-from-the-accepted-text))
+— and applies the [lexer configuration](#tokens-and-lexer-configuration)
+and the `unexpected` [hint](#errors), all through one `j.Grammar(spec)`
+call.
 
 It is idempotent: the first call sets the decoration `semver-init` on the
 instance, and a later call returns `nil` without compiling again. It
@@ -435,11 +439,23 @@ at the `1`. Compare on `Code`, not on `Col`.
 ## Performance
 
 Installing the plugin compiles the ABNF into the engine's rule set —
-about 10 ms in Go — and a parse of a typical version takes about 100 µs.
-Build one engine and reuse it, or call `tabnassemver.Parse`, which does
-that for you; `perf_test.go` pins `Parse` to within a small factor of
-instance reuse, so a regression that rebuilt the grammar per call fails
-the suite. Compiling happens once per instance, never per parse.
+about 10 ms in Go — and a parse of a typical version takes well under
+100 µs. Build one engine and reuse it, or call `tabnassemver.Parse`,
+which does that for you; `perf_test.go` pins `Parse` to within a small
+factor of instance reuse, so a regression that rebuilt the grammar per
+call fails the suite. Compiling happens once per instance, never per
+parse.
+
+A parse costs time and memory linear in the length of the string, and a
+long identifier is no special case: the grammar is installed without the
+compiler's tree-building actions, so nothing accumulates a node per
+byte. `1.0.0-` followed by 32,000 letters parses in under 100 ms and
+about 50 MB, and four times that identifier costs three or four times as
+long, not sixteen. The specification bounds neither the length of an
+identifier nor how many a version has, so a version out of a lock file,
+a tag or a header can be arbitrarily long; `perf_test.go` fails if such
+a string stops parsing, or if eight times the input ever costs more than
+24 times the time.
 
 ## C library
 

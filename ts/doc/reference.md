@@ -78,12 +78,15 @@ Registers and immediately applies the plugin. Returns the engine, so
 registrations chain. `options` is optional and unused: the plugin
 reads no option (see [Options](#options)). Installing compiles the
 embedded ABNF (`grammar`) with `@tabnas/abnf` — start rule `semver`, group tag
-`semver` — into the engine's rule set, attaches the one semantic action
-(an after-close hook on `semver`, `@semver:ac`, which replaces the parse
-tree with the `Version` built from the accepted text), applies the lexer
-settings under [Tokens](#tokens), and sets the `hint` under
-[Errors](#errors). Compiling is the expensive step; build one instance
-and reuse it (see [Performance](#performance)).
+`semver` — into the engine's rule set, strips the compiler's
+tree-building actions out of it with `toRecognitionSpec`, so no parse
+tree is built, attaches the one semantic action (an after-close hook on
+`__start__`, the compiler's end-of-source wrapper, which builds the
+`Version` from the accepted text — see
+[concepts](concepts.md#why-the-value-is-built-from-the-accepted-text)),
+applies the lexer settings under [Tokens](#tokens), and sets the `hint`
+under [Errors](#errors). Compiling is the expensive step; build one
+instance and reuse it (see [Performance](#performance)).
 
 ### `engine.parse(src)`
 
@@ -498,3 +501,14 @@ orders of magnitude, so build one instance — at module load, say — and
 reuse it for every parse; the instance holds no per-parse state. There
 is no module-level cached instance and no convenience `parse()` in this
 package; the engine is yours to build and keep.
+
+A parse costs time and memory linear in the length of the string, and a
+long identifier is no special case: the grammar is installed without the
+compiler's tree-building actions, so nothing accumulates a node per
+character. `1.0.0-` followed by 32,000 letters parses in about 0.2 s and
+some 60 MB of heap, and four times that identifier costs about four times
+as long, not sixteen. The specification bounds neither the length
+of an identifier nor how many a version has, so a version out of a lock
+file, a tag or a header can be arbitrarily long; `perf.test.ts` fails if
+such a string stops parsing, or if eight times the input ever costs more
+than 24 times the time.
