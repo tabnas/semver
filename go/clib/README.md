@@ -66,7 +66,7 @@ const c = @cImport(@cInclude("tabnas.h"));
 
 ## Format notes
 
-ZON integers beyond float64 range parse to arbitrary-precision values; JSON number encoding would round them, so such values yield `valueError` rather than a corrupted number — retrieve them via a native runtime.
+A version component above 2^53 − 1 parses to a `*big.Int`, and JSON number encoding would round it, so such a version yields `valueError` rather than a corrupted number: `accept` stays true, and the value is retrievable through a native tabnas runtime. Everything at or below that bound is an ordinary JSON number. Build metadata is always a string, so `1.0.0+00000000000000000001` is JSON-safe while `18446744073709551616.0.0` is not.
 
 ## Layout
 

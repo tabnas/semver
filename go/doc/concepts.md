@@ -114,10 +114,12 @@ tokens:
 | the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
 One character is one token, because the grammar names only single
-characters. Helper and chain rules flatten: their text rolls up into the
-enclosing named rule's `src` and they add no node. Every named
-production survives by name, but not every one of them takes part in a
-parse.
+characters. Helper and chain rules flatten: in the `{rule, src, kids}`
+tree the compiler's own actions would build, their text rolls up into
+the enclosing named rule's `src` and they add no node — though the
+plugin installs those rules without those actions, and builds no tree
+at all (below). Every named production survives by name, but not every
+one of them takes part in a parse.
 
 ### Leading references are inlined
 
@@ -144,26 +146,53 @@ built by walking the tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
-The plugin has one semantic action, registered as `@semver:ac` — the
-after-close phase of the start rule. When `semver` closes, its node's
-`src` is the text every terminal under it matched, and because every
-default lexer is off (below) that is the whole input, byte for byte.
-The grammar has just proven the text well-formed, so the action splits
-it at the separators without checking anything: the first `+` opens the
-build metadata (no identifier contains `+`); before it, the first `-`
-opens the pre-release (the version core contains no `-`); `.` separates
-identifiers, which never contain it. The action replaces the compiler's
-`{rule, src, kids}` node with the value map, and the `__start__` wrapper
-bubbles it up as the parse result:
+The plugin asks for no parse tree. Once `abnf.Abnf` has returned the
+converted spec, `stripTreeActions` (in `semver.go`) drops every
+AST-building action the compiler emitted — every alternate action that
+resolves through `spec.Ref`, and in this grammar there is no other kind
+— leaving the same 150 rules over the same seven tokens, the same group
+tags and the same accepted language, and no `{rule, src, kids}` node
+behind any rule. It is the typed-spec equivalent of
+`bnf.ToRecognitionSpec`, which this port cannot use directly: that
+function returns a `map[string]any`, serialisable data rather than the
+`*tabnas.GrammarSpec` the engine installs (see [Hooks](#hooks)).
+
+That is not a matter of taste. Every `*` and `1*` repetition compiles to
+a chain of per-character helper rules, and each level of the chain
+re-appends its child's `src` and re-copies its `kids`, so building the
+tree costs time and memory quadratic in an identifier's length:
+`1.0.0-` and 16,000 letters took about 7 s and 4 GB, and every doubling
+of the identifier roughly quadrupled both, so twice that length
+exhausted the machine and died with `fatal error: out of memory`, which
+no returned error can catch. Those
+are valid versions — the specification bounds neither the length of an
+identifier nor how many a version has — so the tree was a denial of
+service on strings the grammar accepts. With it gone, 32,000 characters
+parse in under 100 ms and about 50 MB, and cost grows with the length of
+the input rather than with its square; `perf_test.go` pins both.
+
+What remains is one semantic action, on the compiler's end-of-source
+wrapper: the rule named by `spec.Options.Rule.Start`, which for this
+grammar is `__start__`. That rule opens by pushing `semver` and closes
+on the end token `#ZZ` and nothing else, so when it closes the whole
+source has been accepted and `ctx.Src` — the text being parsed — IS the
+accepted version, byte for byte; every default lexer is off (below), so
+nothing was skipped on the way in. The grammar has just proven the text
+well-formed, so the action splits it at the separators without checking
+anything: the first `+` opens the build metadata (no identifier contains
+`+`); before it, the first `-` opens the pre-release (the version core
+contains no `-`); `.` separates identifiers, which never contain it. The
+value map it builds becomes that rule's node, which is what `Parse`
+returns:
 
 ```go
+startRule := "__start__"
+if spec.Options != nil && spec.Options.Rule != nil && spec.Options.Rule.Start != "" {
+	startRule = spec.Options.Rule.Start
+}
 err = abnf.AttachActions(spec, abnf.ActionsMap{
-	"@semver:ac": {func(r *tabnas.Rule, _ *tabnas.Context) {
-		if node, ok := r.Node.(map[string]any); ok {
-			if src, ok := node["src"].(string); ok {
-				r.Node = fromText(src)
-			}
-		}
+	"@" + startRule + ":ac": {func(r *tabnas.Rule, ctx *tabnas.Context) {
+		r.Node = fromText(ctx.Src)
 	}},
 })
 ```
@@ -182,17 +211,19 @@ v, _ := tabnassemver.Parse("1.0.0-x.7.z.92+exp.sha.5114f85")
 s, _ := tabnassemver.Format(v) // "1.0.0-x.7.z.92+exp.sha.5114f85"
 ```
 
-**Why the hook hangs on `semver`, not `valid-semver`.** The `semver`
-production is a pure alias of the specification's root, and exists for
-one reason. `AttachActions` turns `@semver:ac` into the engine's
-`@semver-ac` function reference, and the published TypeScript engine
-(0.9.0) derived the phase of such a reference by splitting at the
-*first* hyphen: `@valid-semver-ac` was read as the phase `semver-ac`
-and threw at install. The Go engine never had that bug and would bind
-the hook on `valid-semver` directly; the alias is kept here so both
-runtimes compile the same grammar, and costs nothing — the compiler's
-pure-alias exemption (above) is what leaves it standing as a rule of its
-own, with a node for the action to replace.
+**Why the hook hangs on the wrapper, not on `semver`.** `semver` closes
+as soon as a version has been read, which is not the moment the input
+ends. For `1.2.3f` it closes on `1.2.3`, before the engine reaches the
+`f` it is going to reject, and `ctx.Src` there is the whole input, `f`
+and all: a value built at that point would describe a string the parse
+is about to refuse, and quietly — `integer("3f")` yields `0`, so the map
+would claim `1.2.0`. The wrapper cannot close early, having no
+alternative but the end of the source, and it is also the only place
+left that can carry the value: with no tree, nothing bubbles a child
+rule's node up to the result. The `semver` alias is still the entry
+production — the name the grammar, the fixtures and the diagnostics all
+use, kept as a rule of its own by the compiler's pure-alias exemption
+(above) — but it is a name now, not a mechanism.
 
 ## The value decisions
 
@@ -454,11 +485,17 @@ is guaranteed to match at a lookahead failure; see above.
 
 ### Hooks
 
-The Go engine has always accepted a `@<rule>-<phase>` function
-reference on a hyphenated rule name, so this port could have attached
-its action to `valid-semver` directly. It uses the `semver` alias
-anyway, for parity: the two runtimes compile one grammar, and the alias
-is what keeps the TypeScript plugin working on the published engine.
+Both runtimes hang their one action on the compiler's `__start__`
+wrapper, and both install the grammar with the compiler's tree-building
+actions dropped. Only the way of dropping them differs. TypeScript calls
+the library's `toRecognitionSpec`, which hands back a spec it can go on
+to install; the Go `bnf.ToRecognitionSpec` returns a `map[string]any` —
+pure data, meant for serialising a grammar — which the engine cannot
+take without a reload round trip, so this port does the same strip in
+place on the typed `*tabnas.GrammarSpec`, in `stripTreeActions`. It
+drops what the library drops: an alternate action that resolves through
+`spec.Ref`, or names one of the engine's tree-building builtins, plus
+the per-alternate configuration those builtins own.
 
 ### The two toolchain fixes
 

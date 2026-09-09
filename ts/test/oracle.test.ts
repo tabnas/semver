@@ -255,7 +255,16 @@ function grade(s: string): string | null {
     }
   }
   const bld = null == m[5] ? [] : m[5].split('.')
-  assert.deepStrictEqual(v.build, bld, `build in ${JSON.stringify(s)}`)
+  // Return a description like every other check above. Asserting here
+  // threw out of grade(), which aborted the section on the first
+  // offending string and skipped the caller's 20-failure collection and
+  // its census assertion.
+  if (bld.length !== v.build.length) return `build length in ${JSON.stringify(s)}`
+  for (let i = 0; i < bld.length; i++) {
+    if (v.build[i] !== bld[i]) {
+      return `build[${i}] ${v.build[i]} != ${bld[i]} in ${JSON.stringify(s)}`
+    }
+  }
   return null
 }
 

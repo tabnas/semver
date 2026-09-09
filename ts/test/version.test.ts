@@ -18,7 +18,7 @@ import { join } from 'node:path'
 
 // At runtime this file is loaded from `dist-test/`, so `..` is the package
 // root: the version has to be reachable the way a consumer reaches it, not
-// just from `../dist/zon`.
+// just from `../dist/semver`.
 const api = require('..')
 
 // Read package.json rather than importing it, so an unreadable file throws
