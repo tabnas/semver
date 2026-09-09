@@ -1,8 +1,6 @@
-# Staged per ADR-8 to ci/clib-release.yml for maintainer promotion.
-#
 # tabnas-clib-template: v1
 #
-# Artifact build for libtabnaszon: on each published release, call the shared
+# Artifact build for libtabnassemver: on each published release, call the shared
 # two-lane build (portable gates, darwin best-effort — ADR-12 clause 5).
 # The dispatch path late-attaches darwin artifacts to an existing
 # release once a macOS builder is available.
@@ -29,19 +27,19 @@ jobs:
     if: ${{ github.event_name == 'release' }}
     uses: tabnas/.github/.github/workflows/clib-release.yml@main
     with:
-      lib: libtabnaszon
+      lib: libtabnassemver
       tag: ${{ github.event.release.tag_name }}
 
   dispatch-full:
     if: ${{ github.event_name == 'workflow_dispatch' && !inputs.darwin_only }}
     uses: tabnas/.github/.github/workflows/clib-release.yml@main
     with:
-      lib: libtabnaszon
+      lib: libtabnassemver
       tag: ${{ inputs.tag }}
 
   dispatch-darwin:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.darwin_only }}
     uses: tabnas/.github/.github/workflows/clib-darwin-attach.yml@main
     with:
-      lib: libtabnaszon
+      lib: libtabnassemver
       tag: ${{ inputs.tag }}

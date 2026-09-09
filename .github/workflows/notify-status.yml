@@ -1,4 +1,4 @@
-# Target: tabnas/zon -> .github/workflows/notify-status.yml
+# Target: tabnas/semver -> .github/workflows/notify-status.yml
 #
 # Real-time dashboard refresh: on PR/issue count changes, ping tabnas/status.
 name: notify-status
