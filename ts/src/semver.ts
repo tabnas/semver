@@ -20,8 +20,8 @@
  *  two parsed values, and `format` renders a value back to its string.
  */
 
-import type { Tabnas, Plugin, Rule } from '@tabnas/parser'
-import { abnfConvert, attachActions } from '@tabnas/abnf'
+import type { Tabnas, Plugin, Rule, Context } from '@tabnas/parser'
+import { abnfConvert, attachActions, toRecognitionSpec } from '@tabnas/abnf'
 
 
 // The plugin has no options yet. The type exists so `tn.use(Semver, {})`
@@ -192,11 +192,27 @@ letter = %x41-5A / %x61-7A
 const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
   // Compile the specification's grammar into an engine rule set. The
   // start rule is `semver`, a pure alias of the specification's
-  // `valid-semver` — the one rule name without a hyphen, which is what
-  // lets the after-close hook below bind on the published engine (its
-  // TypeScript half derives a phase name from `@<rule>-<phase>` by
-  // splitting at the first hyphen).
-  const spec = abnfConvert(grammarText, { start: 'semver', tag: 'semver' })
+  // `valid-semver`: the name has no hyphen in it, which used to be what
+  // let a lifecycle hook bind on the published engine, whose TypeScript
+  // half derived a phase from `@<rule>-<phase>` by splitting at the
+  // first hyphen. The hook has since moved to the compiler's
+  // end-of-source wrapper (below), so nothing depends on that any more,
+  // but the alias stays: it is the name this plugin's grammar, fixtures
+  // and diagnostics all use for the entry production.
+  //
+  // Then throw the tree away. `toRecognitionSpec` strips every
+  // AST-building action the compiler emitted (the `a:` refs into
+  // `spec.ref`) and returns the same rules with the same language.
+  // Building the `{rule, src, kids}` tree is QUADRATIC in an
+  // identifier's length here: each `*`/`1*` repetition compiles to a
+  // per-character helper that re-appends its child's `src` and re-copies
+  // its `kids` at every nesting level, so `1.0.0-` + 16,000 letters cost
+  // ~10 s and 2.7 GB in TS, and 32,000 aborted the process. The plugin
+  // never reads that tree — the action below builds the value from the
+  // accepted text — so nothing is lost, and the same input now parses in
+  // ~0.16 s and ~60 MB.
+  const spec = toRecognitionSpec(
+    abnfConvert(grammarText, { start: 'semver', tag: 'semver' }))
 
   // Every character class must be lexable at any lookahead slot. The
   // engine gates match tokens on a per-rule collated column that is
@@ -215,18 +231,27 @@ const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
     if (tokens[name] instanceof RegExp) tokens[name].eager$ = true
   }
 
-  // The single semantic action. When `semver` closes, its node's `src` is
-  // the text every terminal under it matched — with every default lexer
-  // off (below) that is the whole input, character for character — and
-  // the grammar has just proven it well-formed. Replace the compiler's
-  // `{rule, src, kids}` tree with the `Version` value; the compiler's
-  // `__start__` wrapper bubbles it up as the parse result.
+  // The single semantic action, on the compiler's end-of-source wrapper
+  // — the rule `abnfConvert` names in `options.rule.start`, normally
+  // `__start__` (it numbers the name only if the grammar declares one
+  // itself, which this one does not). That rule closes on `#ZZ` and
+  // nothing else, so it closes exactly when the whole source has been
+  // accepted: `ctx.src()` is then the accepted text, character for
+  // character — with every default lexer off (below) nothing was
+  // skipped on the way in — and it is the same string the discarded
+  // tree's `src` used to hold. Its node is what `parse` returns.
+  //
+  // The wrapper, not `semver`: `semver` closes as soon as a VERSION has
+  // been read, which for `1.2.3f` happens before the engine discovers
+  // the trailing `f`, and `ctx.src()` there is the whole input, `f` and
+  // all. Building a value from it would report a wrong version (or, for
+  // `1.2.3f`, throw a raw `SyntaxError` from `BigInt('3f')`) on a
+  // string the grammar is about to reject. Positions and error codes
+  // are unaffected either way: this action only runs on success.
+  const startRule = (spec.options as any).rule.start
   attachActions(spec, {
-    '@semver:ac': (r: Rule) => {
-      const node: any = r.node
-      if (null != node && 'string' === typeof node.src) {
-        r.node = fromText(node.src)
-      }
+    [`@${startRule}:ac`]: (r: Rule, ctx: Context) => {
+      r.node = fromText(ctx.src())
     },
   })
 

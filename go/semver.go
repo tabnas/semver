@@ -215,19 +215,41 @@ func Semver(j *tabnas.Tabnas, _ map[string]any) error {
 		return fmt.Errorf("semver: grammar failed to compile: %w", err)
 	}
 
-	// The single semantic action. When `semver` closes, its node's `src` is
-	// the text every terminal under it matched — with every default lexer
-	// off (below) that is the whole input, byte for byte — and the grammar
-	// has just proven it well-formed. Replace the compiler's
-	// {rule, src, kids} tree with the value; the compiler's `__start__`
-	// wrapper bubbles it up as the parse result.
+	// ... and then throw the tree away. Building the compiler's
+	// {rule, src, kids} tree is QUADRATIC in an identifier's length here:
+	// each `*`/`1*` repetition compiles to a per-character helper that
+	// re-appends its child's src and re-copies its kids at every nesting
+	// level, so `1.0.0-` + 16,000 letters cost 7.2 s and 9.1 GB, and
+	// 32,000 was killed by the OOM killer. The plugin never reads that
+	// tree — the action below builds the value from the accepted text —
+	// so nothing is lost.
+	//
+	// This is what @tabnas/bnf's recognition mode does (TS calls the
+	// library's toRecognitionSpec, which returns an installable spec);
+	// the Go ToRecognitionSpec returns serialisable data rather than a
+	// *GrammarSpec, so the same strip is done here on the typed spec.
+	stripTreeActions(spec)
+
+	// The single semantic action, on the compiler's end-of-source wrapper
+	// — the rule abnf.Abnf names in Options.Rule.Start, normally
+	// `__start__` (it numbers the name only if the grammar declares one
+	// itself, which this one does not). That rule closes on `#ZZ` and
+	// nothing else, so it closes exactly when the whole source has been
+	// accepted: ctx.Src is then the accepted text, byte for byte — with
+	// every default lexer off (below) nothing was skipped on the way in —
+	// and it is the same string the discarded tree's `src` used to hold.
+	// Its node is what Parse returns.
+	//
+	// The wrapper, not `semver`: `semver` closes as soon as a VERSION has
+	// been read, which for "1.2.3f" happens before the engine discovers
+	// the trailing `f`, and ctx.Src there is the whole input, `f` and all.
+	startRule := "__start__"
+	if spec.Options != nil && spec.Options.Rule != nil && spec.Options.Rule.Start != "" {
+		startRule = spec.Options.Rule.Start
+	}
 	err = abnf.AttachActions(spec, abnf.ActionsMap{
-		"@semver:ac": {func(r *tabnas.Rule, _ *tabnas.Context) {
-			if node, ok := r.Node.(map[string]any); ok {
-				if src, ok := node["src"].(string); ok {
-					r.Node = fromText(src)
-				}
-			}
+		"@" + startRule + ":ac": {func(r *tabnas.Rule, ctx *tabnas.Context) {
+			r.Node = fromText(ctx.Src)
 		}},
 	})
 	if err != nil {
@@ -440,6 +462,98 @@ func Format(v any) (string, error) {
 		sb.WriteString(s)
 	}
 	return sb.String(), nil
+}
+
+// stripTreeActions removes the compiler's tree-building actions from a
+// converted spec, in place: every alt action that resolves through
+// spec.Ref is the emitter's own AST builder (this grammar has no other
+// kind — no `bo`/`bc` hooks and no probe dispatcher), and dropping them
+// leaves the rules, the tokens and therefore the accepted language
+// exactly as they were. It is the typed-spec equivalent of
+// bnf.ToRecognitionSpec, which returns pure data instead of a spec and
+// so cannot be installed without a serialise/reload round trip.
+//
+// Call it BEFORE AttachActions, which adds the one action that must
+// survive.
+func stripTreeActions(spec *tabnas.GrammarSpec) {
+	if spec == nil || len(spec.Ref) == 0 {
+		return
+	}
+	// The same drop set bnf.ToRecognitionSpec uses: an action that
+	// resolves through spec.Ref (closure conversion, which is what this
+	// plugin does) or names one of the engine's tree-building builtins
+	// (a `Builtins: true` conversion, which this plugin does not do —
+	// listed so the strip stays correct if it ever starts to).
+	treeBuiltin := map[string]bool{
+		"@node$": true, "@capture$": true, "@bubble$": true, "@fold$": true,
+	}
+	isRef := func(v any) bool {
+		s, ok := v.(string)
+		if !ok {
+			return false
+		}
+		if treeBuiltin[s] {
+			return true
+		}
+		_, found := spec.Ref[tabnas.FuncRef(s)]
+		return found
+	}
+	keep := func(v any) any {
+		switch a := v.(type) {
+		case nil:
+			return nil
+		case string:
+			if isRef(a) {
+				return nil
+			}
+		case []any:
+			out := make([]any, 0, len(a))
+			for _, e := range a {
+				if !isRef(e) {
+					out = append(out, e)
+				}
+			}
+			if len(out) == 0 {
+				return nil
+			}
+			return out
+		}
+		return v
+	}
+	for _, rule := range spec.Rule {
+		if rule == nil {
+			continue
+		}
+		for _, alts := range [][]*tabnas.GrammarAltSpec{
+			specAlts(rule.Open), specAlts(rule.Close),
+		} {
+			for _, alt := range alts {
+				if alt == nil {
+					continue
+				}
+				alt.A = keep(alt.A)
+				// The dropped builtins' per-alt configuration goes with
+				// them; anything else under K is the grammar's own.
+				for _, k := range []string{"node$", "capture$", "fold$"} {
+					delete(alt.K, k)
+				}
+			}
+		}
+	}
+	spec.Ref = nil
+}
+
+// specAlts reads a rule-spec phase in either shape the engine accepts.
+func specAlts(state any) []*tabnas.GrammarAltSpec {
+	switch v := state.(type) {
+	case []*tabnas.GrammarAltSpec:
+		return v
+	case *tabnas.GrammarAltListSpec:
+		if v != nil {
+			return v.Alts
+		}
+	}
+	return nil
 }
 
 func numberText(n any) (string, error) {

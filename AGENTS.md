@@ -203,18 +203,37 @@ repo's parity fixtures
   `pre-release-identifier` / `build-identifier` of each list — those rules
   still exist, but the parse never pushes them, so they never get a node
   or a lifecycle hook. Do not build the value from the tree, and do not
-  hang actions on those rules. The plugin instead reads the whole accepted
-  text off the start rule's node (`src` is every terminal it matched, and
-  with every default lexer off that is the input, character for
-  character) and splits it at the separators the grammar has just proven
-  are there. That is immune to which rules the compiler keeps.
-- **The one hook is on `semver`, the unhyphenated alias, on purpose.** The
-  published TS engine (0.9.0) derived a `@<rule>-<phase>` fnref's phase by
-  stripping up to the *first* hyphen, so `@valid-semver-ac` was read as
-  the phase `semver-ac` and threw at install; Go never had the bug. The
-  engine fix is in the parser change named above; the alias keeps the
-  plugin working on the engine that is already published, and costs
-  nothing.
+  hang actions on those rules. The plugin instead reads the accepted text
+  from the source and splits it at the separators the grammar has just
+  proven are there. That is immune to which rules the compiler keeps.
+- **The plugin asks for no parse tree at all.** `toRecognitionSpec`
+  (TypeScript, from `@tabnas/abnf`) and `stripTreeActions` (the Go
+  equivalent, in `go/semver.go`, because the Go `ToRecognitionSpec`
+  returns data rather than an installable spec) drop every AST-building
+  action the compiler emitted. The rules, the tokens and the accepted
+  language are unchanged. This is not an optimisation to taste: building
+  that tree is QUADRATIC in an identifier's length, because each `*`/`1*`
+  repetition compiles to a per-character helper that re-appends its
+  child's `src` and re-copies its `kids` at every level. `1.0.0-` and
+  16,000 letters cost about 10 s and 2.7 GB in TypeScript and 7 s and
+  9 GB in Go; 32,000 letters killed the process outright, uncatchably, on
+  a string the specification and its own regular expression both accept.
+  Two tests in each runtime pin the repair: one that such a string parses
+  at all, one that eight times the input costs less than 24 times the
+  time.
+- **The one hook is on the compiler's end-of-source wrapper**, the rule
+  named by `options.rule.start` (normally `__start__`), not on `semver`.
+  That rule closes on `#ZZ` and nothing else, so when it closes the whole
+  source has been accepted and `ctx.src()` / `ctx.Src` IS the accepted
+  text. `semver` closes as soon as a version has been read, which for
+  `1.2.3f` happens before the engine sees the trailing `f`, so a value
+  built there would describe a string about to be rejected. With no tree
+  there is no `r.node.src` to read instead. The `semver` alias remains
+  the entry production, and its unhyphenated name no longer matters:
+  the published TS engine (0.9.0) derived a `@<rule>-<phase>` fnref's
+  phase by stripping up to the *first* hyphen, so `@valid-semver-ac` was
+  read as the phase `semver-ac` and threw at install (Go never had the
+  bug, and the parser change named above fixes TS).
 - **Every default lexer is off.** Whitespace, line ends, comments,
   strings, numbers, bare words and keyword values are all `lex: false`, so
   a blank, a tab, a newline, a `#`, a quote or a `v` prefix has no matcher
@@ -337,6 +356,15 @@ parse result must treat every part as hostile text.
 - Parsing is not sanitising. The plugin returns what the string contained
   (including `bigint` / `*big.Int` components); escaping for SQL, HTML or a
   shell remains the caller's job.
+- **Cost is linear in the length of the input**, and the tests keep it
+  there (`perf.test.ts`, `perf_test.go`: a 32,000-character identifier
+  parses, and eight times the input costs under 24 times the time). That
+  was not free — see the tree gotcha above — and it is the property that
+  makes an unbounded identifier safe to accept from a header or a lock
+  file. A change that reintroduces per-node tree building reintroduces a
+  denial of service, which `SECURITY.md` puts in scope. Memory is linear
+  too, so a caller who must bound it can bound the input length; the
+  specification itself sets no limit and neither does this plugin.
 
 ## Composition test (@tabnas/debug)
 

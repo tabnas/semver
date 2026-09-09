@@ -76,4 +76,53 @@ describe('perf', () => {
         `reuse=${reuse}ns rebuild=${rebuild}ns (scaled) for ${N} parses`,
     )
   })
+
+  // A long identifier is VALID: the specification bounds neither the
+  // length of a pre-release or build identifier nor the number of them,
+  // and the regular expression semver.org publishes accepts every string
+  // below. They arrive from lock files, tags and HTTP headers, so they
+  // are attacker-chosen text (see AGENTS.md, "Untrusted input").
+  //
+  // While the plugin asked the compiler for the `{rule, src, kids}` tree
+  // it never read, each of these was QUADRATIC in the identifier's
+  // length — the per-character helper chain re-appended its child's
+  // `src` and re-copied its `kids` at every level. `1.0.0-` + 16,000
+  // letters took ~10 s and 2.7 GB; 32,000 aborted the V8 heap, killing
+  // the process (exit 134), which no `try` can catch. This test is that
+  // crash: it does not measure time, it measures survival.
+  test('a very long identifier parses instead of killing the process', () => {
+    const j = new Tabnas().use(Semver)
+    const L = 32000
+    for (const [what, src] of [
+      ['pre-release identifier', '1.0.0-' + 'a'.repeat(L)],
+      ['build identifier', '1.0.0+' + 'a'.repeat(L)],
+      ['major', '1'.repeat(L) + '.0.0'],
+      ['identifier list', '1.0.0-' + Array(L / 2).fill('a').join('.')],
+    ] as [string, string][]) {
+      const v: any = j.parse(src)
+      assert.equal(v.major !== undefined, true, what)
+    }
+  })
+
+  // ... and the cost of doing it grows with the input, not with its
+  // square. Machine-INDEPENDENT like the test above it: the same
+  // instance, the same shape, one length against eight times that
+  // length in the same run. Linear is ~8x, quadratic ~64x; the bound is
+  // 24x, three times linear, so only a return to quadratic trips it.
+  test('identifier length costs linear time, not quadratic', () => {
+    const j = new Tabnas().use(Semver)
+    const time = (src: string) => {
+      j.parse(src) // warm
+      const t0 = process.hrtime.bigint()
+      j.parse(src)
+      return Number(process.hrtime.bigint() - t0)
+    }
+    const small = time('1.0.0-' + 'a'.repeat(2000))
+    const large = time('1.0.0-' + 'a'.repeat(16000))
+    assert.ok(
+      large < 24 * small,
+      `identifier cost is superlinear: 2000 chars ${small}ns, ` +
+        `16000 chars ${large}ns (${(large / small).toFixed(1)}x for 8x the input)`,
+    )
+  })
 })
