@@ -137,9 +137,17 @@ pairwise disjoint, so no character can be lexed two ways and token order
 cannot matter. So an isolated `npm install` against the published
 `@tabnas/bnf` 0.1.10 / `@tabnas/parser` 0.9.0 passes the whole TS suite,
 oracle corpus included, and so does the fleet layout with the fixed
-siblings linked. Keep the port until a `@tabnas/bnf` that sets the flag
-is published and the peer range is raised past it; then delete the loop
-and the test that pins it. The Go module never needed either fix. The
+siblings linked. Keep the port until a published `@tabnas/bnf` sets the
+flag and the peer range is raised past it; then delete the loop and the
+test that pins it. That may be a while: a later review of the ABNF
+compiler found that marking every class eager imports a Go defect into
+TypeScript (a class that overlaps a fixed literal, `digit = %x30-39`
+beside `"0"`, then steals the literal's cut), so tabnas/bnf#33 is on
+hold. **This grammar is immune by construction** — `digit = "0" /
+positive-digit` with `positive-digit = %x31-39`, so no class contains a
+literal — which is why the port is safe here and why the whole oracle
+corpus passes with it. Do not copy the loop into a plugin whose classes
+and literals overlap. The Go module never needed either fix. The
 same parser change also lets `@<rule>-<phase>` lifecycle hooks bind on
 hyphenated rule names in TypeScript; this plugin does not depend on that
 (see the gotchas). The shapes are pinned for both runtimes in the abnf
