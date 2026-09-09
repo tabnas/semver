@@ -1,10 +1,10 @@
-# libtabnaszon — the zon parser as a C ABI
+# libtabnassemver — the semver parser as a C ABI
 
 <!-- tabnas-clib-template: v1 — stamped by admin tasks/adopt-clib.sh;
      edit the template and re-stamp, not this file. -->
 
-The zon format parser as a C shared library, so languages with no
-tabnas port can parse and validate zon input. This is one of the
+The semver format parser as a C shared library, so languages with no
+tabnas port can parse and validate semver input. This is one of the
 per-format tabnas clibs sharing the **uniform ABI** decided by ADR-12:
 every such library exports the same five symbols, and which library you
 load decides which format you parse — so one generic binding per
@@ -20,7 +20,7 @@ ZIG=/path/to/zig ./build.sh all
 
 | Function | Returns |
 |---|---|
-| `tabnas_version()` | `{"ok":true,"lib":"libtabnaszon","format":"zon","template":"v1"}` |
+| `tabnas_version()` | `{"ok":true,"lib":"libtabnassemver","format":"semver","template":"v1"}` |
 | `tabnas_grammar(opts, len)` | `{"ok":true,"handle":N}` — opts reserved, pass `(NULL, 0)` |
 | `tabnas_parse(handle, src, len)` | `{"ok":true,"accept":true[,"value":…]}` or `{"ok":true,"accept":false,"error":{…}}` |
 | `tabnas_grammar_free(handle)` | — |
@@ -60,7 +60,7 @@ binding layer exists or is needed. Zig example:
 
 ```zig
 const c = @cImport(@cInclude("tabnas.h"));
-// link against libtabnaszon; every call returns a JSON []u8 to free with
+// link against libtabnassemver; every call returns a JSON []u8 to free with
 // c.tabnas_free.
 ```
 

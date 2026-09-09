@@ -1,37 +1,43 @@
-# zon (Go)
+# semver (Go)
 
-A jsonic grammar plugin that parses
-[Zig Object Notation (ZON)](https://ziglang.org/documentation/master/#ZON)
-into Go values. ZON is the anonymous-struct data format used for Zig
-`build.zig.zon` manifests.
+A tabnas grammar plugin that parses
+[Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) version
+strings into Go values, exactly as the specification defines them. The
+parser is the specification's own grammar, compiled from ABNF by
+[`github.com/tabnas/abnf/go`](https://github.com/tabnas/abnf) when the
+plugin is installed.
 
 ## Install
 
 ```bash
-go get github.com/tabnas/zon/go@latest
+go get github.com/tabnas/semver/go@latest
 ```
 
 ```go
-import tabnaszon "github.com/tabnas/zon/go"
+import tabnassemver "github.com/tabnas/semver/go"
 ```
 
 ## One example
 
-`tabnaszon.Parse` is the one-call entry point — pass source, get a value and
-an `error`:
+`tabnassemver.Parse` is the one-call entry point — pass a string, get a
+value and an `error`:
 
 ```go
-result, err := tabnaszon.Parse(`.{ .name = "Alice", .age = 30 }`)
-// result: map[string]any{"name": "Alice", "age": float64(30)}
+v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
+// map[string]any{
+//   "major": float64(1), "minor": float64(2), "patch": float64(3),
+//   "prerelease": []any{"alpha", float64(1)},
+//   "build":      []any{"build", "5"},
+// }
 
-result, err = tabnaszon.Parse(`.{ 1, 2, 3 }`)
-// result: []any{float64(1), float64(2), float64(3)}
+c, err := tabnassemver.Compare(a, b) // -1, 0 or 1 by precedence (§11)
+s, err := tabnassemver.Format(v)     // "1.2.3-alpha.1+build.5"
 ```
 
-Numbers come back as `float64`. The no-options `Parse` path reuses a
-cached instance internally and is safe for concurrent use; for hot
-loops with options, build one instance with `tabnaszon.MakeJsonic` and reuse
-it.
+Integer components come back as `float64`, or as `*big.Int` above
+2^53 − 1. `Parse` reuses a cached engine and is safe for concurrent use;
+for a hot loop, build one instance with `tabnassemver.Make` and reuse it
+on one goroutine.
 
 ## Documentation
 
@@ -40,10 +46,10 @@ framework:
 
 - [Tutorial](doc/tutorial.md) — a guided first parse, start to finish.
 - [How-to guide](doc/guide.md) — short recipes for individual tasks.
-- [Reference](doc/reference.md) — the public API, every option, and the
-  complete ZON syntax accepted.
-- [Concepts](doc/concepts.md) — how the plugin reshapes the engine, and
-  how the Go version differs from TypeScript.
+- [Reference](doc/reference.md) — the public API, the value shape, and
+  the complete syntax accepted.
+- [Concepts](doc/concepts.md) — how the plugin turns the specification's
+  grammar into a parser, and how the Go version differs from TypeScript.
 
 For the canonical TypeScript implementation, see
 [`../ts/README.md`](../ts/README.md).
@@ -51,14 +57,17 @@ For the canonical TypeScript implementation, see
 ## Grammar
 
 The grammar is defined once in the top-level
-[`zon-grammar.jsonic`](../zon-grammar.jsonic) and embedded into this Go
-source ([`zon.go`](zon.go)) and the TypeScript source during the build.
-Edit the grammar there, not in the generated source.
+[`semver-grammar.abnf`](../semver-grammar.abnf) and embedded into this Go
+source ([`semver.go`](semver.go)) and the TypeScript source during the
+build. Edit the grammar there, not in the generated source. It is also
+exported, as `Grammar`, for tooling that wants the text.
 
-A railroad/syntax diagram of the grammar is in
-[`../ts/doc/grammar.svg`](../ts/doc/grammar.svg) (ASCII version:
-[`../ts/doc/grammar.txt`](../ts/doc/grammar.txt)).
+## C library
+
+[`clib/`](clib/) builds `libtabnassemver`, the parser as a C shared library
+with the fleet's uniform five-symbol ABI, for languages with no tabnas
+port.
 
 ## License
 
-Copyright (c) 2025 Richard Rodger and other contributors, MIT License.
+Copyright (c) 2026 Richard Rodger and other contributors, MIT License.

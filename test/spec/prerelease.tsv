@@ -1,0 +1,56 @@
+input	expected
+# Pre-release identifiers: numeric ones (all digits, no leading zero)
+# become numbers; alphanumeric ones stay strings.
+1.0.0-0	{"major":1,"minor":0,"patch":0,"prerelease":[0],"build":[]}
+1.0.0-1	{"major":1,"minor":0,"patch":0,"prerelease":[1],"build":[]}
+1.0.0-10	{"major":1,"minor":0,"patch":0,"prerelease":[10],"build":[]}
+1.0.0-0.0.0	{"major":1,"minor":0,"patch":0,"prerelease":[0,0,0],"build":[]}
+1.0.0-1.2.3	{"major":1,"minor":0,"patch":0,"prerelease":[1,2,3],"build":[]}
+1.0.0-a	{"major":1,"minor":0,"patch":0,"prerelease":["a"],"build":[]}
+1.0.0-A	{"major":1,"minor":0,"patch":0,"prerelease":["A"],"build":[]}
+1.0.0-z	{"major":1,"minor":0,"patch":0,"prerelease":["z"],"build":[]}
+1.0.0-Z	{"major":1,"minor":0,"patch":0,"prerelease":["Z"],"build":[]}
+1.0.0-alpha	{"major":1,"minor":0,"patch":0,"prerelease":["alpha"],"build":[]}
+1.0.0-ALPHA	{"major":1,"minor":0,"patch":0,"prerelease":["ALPHA"],"build":[]}
+1.0.0-Alpha	{"major":1,"minor":0,"patch":0,"prerelease":["Alpha"],"build":[]}
+1.0.0-rc.1	{"major":1,"minor":0,"patch":0,"prerelease":["rc",1],"build":[]}
+1.0.0-rc.1.2.3	{"major":1,"minor":0,"patch":0,"prerelease":["rc",1,2,3],"build":[]}
+1.0.0-alpha.beta.gamma	{"major":1,"minor":0,"patch":0,"prerelease":["alpha","beta","gamma"],"build":[]}
+# An identifier that mixes digits and letters is alphanumeric, whichever
+# comes first.
+1.0.0-1a	{"major":1,"minor":0,"patch":0,"prerelease":["1a"],"build":[]}
+1.0.0-a1	{"major":1,"minor":0,"patch":0,"prerelease":["a1"],"build":[]}
+1.0.0-12a	{"major":1,"minor":0,"patch":0,"prerelease":["12a"],"build":[]}
+1.0.0-123abc456	{"major":1,"minor":0,"patch":0,"prerelease":["123abc456"],"build":[]}
+1.0.0-a1b2c3	{"major":1,"minor":0,"patch":0,"prerelease":["a1b2c3"],"build":[]}
+# Leading zeros are banned only for NUMERIC identifiers: an alphanumeric
+# identifier may start with any number of zeros.
+1.0.0-0a	{"major":1,"minor":0,"patch":0,"prerelease":["0a"],"build":[]}
+1.0.0-00a	{"major":1,"minor":0,"patch":0,"prerelease":["00a"],"build":[]}
+1.0.0-01a	{"major":1,"minor":0,"patch":0,"prerelease":["01a"],"build":[]}
+1.0.0-007a	{"major":1,"minor":0,"patch":0,"prerelease":["007a"],"build":[]}
+1.0.0-0123456789a	{"major":1,"minor":0,"patch":0,"prerelease":["0123456789a"],"build":[]}
+1.0.0-000-	{"major":1,"minor":0,"patch":0,"prerelease":["000-"],"build":[]}
+# The hyphen is an identifier character.
+1.0.0--	{"major":1,"minor":0,"patch":0,"prerelease":["-"],"build":[]}
+1.0.0---	{"major":1,"minor":0,"patch":0,"prerelease":["--"],"build":[]}
+1.0.0--a	{"major":1,"minor":0,"patch":0,"prerelease":["-a"],"build":[]}
+1.0.0-a-	{"major":1,"minor":0,"patch":0,"prerelease":["a-"],"build":[]}
+1.0.0-0-	{"major":1,"minor":0,"patch":0,"prerelease":["0-"],"build":[]}
+1.0.0-1-	{"major":1,"minor":0,"patch":0,"prerelease":["1-"],"build":[]}
+1.0.0--1	{"major":1,"minor":0,"patch":0,"prerelease":["-1"],"build":[]}
+1.0.0-a-b-c	{"major":1,"minor":0,"patch":0,"prerelease":["a-b-c"],"build":[]}
+1.0.0-1-2-3	{"major":1,"minor":0,"patch":0,"prerelease":["1-2-3"],"build":[]}
+1.0.0--.-	{"major":1,"minor":0,"patch":0,"prerelease":["-","-"],"build":[]}
+# A numeric identifier is numeric even next to alphanumeric ones.
+1.0.0-1.a.2.b	{"major":1,"minor":0,"patch":0,"prerelease":[1,"a",2,"b"],"build":[]}
+1.0.0-a.1.b.2	{"major":1,"minor":0,"patch":0,"prerelease":["a",1,"b",2],"build":[]}
+# Words that are keywords elsewhere are plain identifiers here.
+1.0.0-true	{"major":1,"minor":0,"patch":0,"prerelease":["true"],"build":[]}
+1.0.0-null	{"major":1,"minor":0,"patch":0,"prerelease":["null"],"build":[]}
+1.0.0-false.NaN.Infinity	{"major":1,"minor":0,"patch":0,"prerelease":["false","NaN","Infinity"],"build":[]}
+# Large numeric identifiers stay exact (up to 2^53 - 1 as a number).
+1.0.0-9007199254740991	{"major":1,"minor":0,"patch":0,"prerelease":[9007199254740991],"build":[]}
+1.0.0-20130313144700	{"major":1,"minor":0,"patch":0,"prerelease":[20130313144700],"build":[]}
+# A hyphen after a dot-separated numeric run is still an identifier character.
+1.2.3-1.2.3-1.2.3	{"major":1,"minor":2,"patch":3,"prerelease":[1,2,"3-1",2,3],"build":[]}

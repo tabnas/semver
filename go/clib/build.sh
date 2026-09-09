@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build libtabnaszon, the C-ABI shared library, for one or more targets.
+# Build libtabnassemver, the C-ABI shared library, for one or more targets.
 #
 # tabnas-clib-template: v1 (stamped by admin tasks/adopt-clib.sh;
 # edit the template and re-stamp, not this file).
@@ -23,7 +23,7 @@ set -eu
 ZIG="${ZIG:-zig}"
 OUT="${OUT:-dist}"
 PKG="."
-LIB="libtabnaszon"
+LIB="libtabnassemver"
 
 # GOHOSTOS/GOHOSTARCH, not GOOS/GOARCH: the latter name the TARGET when
 # a caller exports them for cross-compilation, and mistaking a target

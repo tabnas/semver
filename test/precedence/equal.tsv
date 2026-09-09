@@ -1,0 +1,14 @@
+a	b
+# Pairs of versions with the SAME precedence: §10 says build metadata
+# is ignored when determining version precedence, and §11.1 says the
+# comparison covers major, minor, patch and pre-release only.
+1.0.0	1.0.0
+1.0.0	1.0.0+build
+1.0.0+a	1.0.0+b
+1.0.0+001	1.0.0+20130313144700
+1.0.0-alpha	1.0.0-alpha
+1.0.0-alpha	1.0.0-alpha+1
+1.0.0-alpha+exp.sha.5114f85	1.0.0-alpha+21AF26D3----117B344092BD
+1.0.0-alpha.1+a	1.0.0-alpha.1+b.c.d
+0.0.0	0.0.0+0
+9007199254740991.0.0	9007199254740991.0.0+x

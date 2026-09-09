@@ -1,86 +1,68 @@
-# Agents Guide — shared spec fixtures
+# Agents Guide — shared test data
 
-`spec/*.tsv` holds the cross-runtime conformance fixtures. Both runtimes
-auto-discover and run **every** file in this directory, so a change here
-affects TypeScript and Go together — edit with that in mind.
+Two kinds of shared, cross-runtime data live here. Both runtimes read both,
+so a change to either affects TypeScript and Go together — edit with that in
+mind.
 
-`zigzon/` and `strictness/` hold the generated zig-reference corpora. What is
-tracked there is the instrument, never the corpus: `zigzon/tools/` (the
-oracle and its harness) and `strictness/inputs.txt` (our own probe inputs).
-Both `cases.json` files are `.gitignore`d and are rebuilt from the pinned
-ziglang/zig 0.16.0 release by `scripts/fetch-zigzon.sh`.
+| Directory | What it is | Who runs it |
+|---|---|---|
+| `spec/` | Parse fixtures: `input → expected`, one case per line. Every file is auto-discovered and run by `ts/test/parity.test.ts` and `go/parity_test.go`. | the shared `@tabnas/support` runner, in both languages |
+| `precedence/` | Precedence fixtures for `compare` (specification §11): `order.tsv` is a strictly ascending chain, `equal.tsv` pairs that compare equal. Run by `ts/test/precedence.test.ts` and `go/precedence_test.go`. | a dozen lines of loop in each runtime, over the shared loader |
 
-## The instrument's own rules
-
-- **The corpora are built automatically, not opt-in.** `pretest` in
-  `ts/package.json` and `TestMain` in `go/zigzon_test.go` both run
-  `scripts/fetch-zigzon.sh` before grading, so the suites run in CI as well
-  as locally. Do not remove either hook.
-- **A missing corpus is a FAILURE, not a skip.** The only skip permitted is
-  the platform one: a host with no pinned zig oracle toolchain
-  (anything but linux/macos on x86_64/aarch64) reports one explicit,
-  platform-named skip. Never widen that carve-out to cover a missing file.
-- **The census is pinned** — 184 valid / 44 invalid in `zigzon`, 45 / 72 in
-  `strictness`. If it fails, find out what changed in the generator; do not
-  edit the number to match.
-- **Every download is SHA-256 pinned.** A mismatch is a hard failure, never
-  something to work around.
-- Do not shrink a corpus, add a skip list, narrow the option set, or loosen
-  the value comparison to improve a number. A conformance figure that cannot
-  fail is worth nothing.
+The third instrument is not a file at all: `ts/test/oracle.test.ts` and
+`go/oracle_test.go` generate an identical corpus of ~58,000 strings at run
+time and grade the plugin against the regular expression semver.org
+publishes. See [`AGENTS.md`](../AGENTS.md#conformance-claim) at the repo
+root for what it measures and how its census is pinned.
 
 ## Format
 
 Tab-separated, one case per line, with a header row naming the columns.
 Blank lines are skipped, and so are comment lines — a line starting with
-`#` that contains no tab. (A data row always has at least one tab, so a
-`#`-leading source such as a C preprocessor directive still works.)
+`#` that contains no tab. (A data row always has at least one tab.)
+
+### `spec/*.tsv`
 
 | Column | Meaning |
 |---|---|
-| `input` | ZON source. Escapes `\n` `\r` `\t` `\\` are decoded. |
+| `input` | The version string. Escapes `\n` `\r` `\t` `\\` are decoded, so a newline or tab inside a case is writable. A leading or trailing blank is significant and is written as itself. An empty input is an empty first cell (the row is just a tab and the expectation). |
 | `expected` | A JSON value (the parse result), or `ERROR` / `ERROR:<code>` for inputs that must fail. The code is compared **exactly** — it is the error's code, not a substring of its message. |
-| `opts` | Optional JSON object of plugin options (empty means defaults). |
 
-`expected` and `opts` are **not** escape-decoded — they are raw JSON, so
-JSON's own escape rules apply (`"a\nb"` is a string containing a newline).
-To put a literal backslash in `input`, write `\\`.
+`expected` is **not** escape-decoded — it is raw JSON, so JSON's own escape
+rules apply. There is no `opts` column: the plugin has no options.
 
-Results are compared after a JSON round-trip, so key order and the
-`OrderedMap` / null-prototype-object representations do not affect the
-comparison.
+Results are compared after a JSON round-trip, so key order and the object
+representation do not affect the comparison. That is also what a fixture
+**cannot** express: a component above `Number.MAX_SAFE_INTEGER` (2^53 − 1)
+is a `bigint` in TypeScript and a `*big.Int` in Go, which JSON cannot carry.
+Those cases live in `ts/test/semver.test.ts` and `go/semver_test.go`,
+mirrored case for case.
 
-## Who runs what
+### `precedence/order.tsv`
 
-- TypeScript: `ts/test/parity.test.ts` — `makeRunner(...).dir(...)`.
-- Go: `go/parity_test.go` — `support.Runner{...}.Dir(t, dir)`.
+One column, `version`. Rows are in strictly ascending precedence. Both
+runners check every pair `(i, j)` with `i < j` compares `-1` and the reverse
+`1`, and that every row equals itself — so the file pins transitivity, not
+only adjacent pairs. Keep it sorted; a row out of order fails in both
+runtimes.
 
-Both are a dozen lines holding only what is specific to zon: how to build
-the parser for a row's options. Everything else — finding `test/spec`,
-reading the file, decoding escapes, the `ERROR:` contract, the comparison,
-the `<file>:<line>` in a failure message — comes from
-[`@tabnas/support`](https://github.com/tabnas/support) and its Go half, so
-the two loaders cannot drift from each other either.
+### `precedence/equal.tsv`
 
-Both discover files by directory listing: adding a `.tsv` here runs it in
-both runtimes without touching either runner. An empty fixture, and a spec
-directory with no fixtures in it, both **fail** — a runner that reports
-green having run nothing is indistinguishable from coverage that was never
-there.
+Two columns, `a` and `b`. Each pair compares `0` both ways.
 
 ## Rules
 
 - Prefer adding a fixture here over a one-off in-language assertion when a
   case is expressible as input → output. That is what keeps the two
   runtimes honest against each other.
-- What a fixture **cannot** express, because both runners compare after a
-  JSON round-trip: `bigint` / `*big.Int` values, `Infinity`, `NaN`, and the
-  `-0` / `0` distinction. Those live in `ts/test/zon.test.ts` and
-  `go/zon_test.go`, mirrored case for case.
-- [`strict.tsv`](spec/strict.tsv) collects the inputs the Zig reference
-  implementation REJECTS. Every verdict there came from the oracle in
-  `scripts/fetch-zigzon.sh`, not from a judgement call — if you add a row,
-  get the verdict the same way.
+- **Every rejection is `ERROR:unexpected`.** This plugin declares no error
+  codes of its own (see the root `AGENTS.md`), so `unexpected` — the
+  engine's base code — is the whole rejection contract, and every row in
+  `spec/strict.tsv` pins it as a code, never as a bare `ERROR`.
+- A verdict is never a judgement call: the specification's grammar decides,
+  and the regular expression semver.org publishes is the oracle the
+  `oracle` suites re-check against. If you add a row, check it against the
+  expression first; if the two disagree, the fixture is wrong.
 - TypeScript is canonical. If the two runtimes disagree, the TS behaviour is
   the expected value — unless Go has exposed a genuine TS defect, in which
   case fix TS first and pin the corrected behaviour here.

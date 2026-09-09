@@ -1,13 +1,13 @@
 // Copyright (c) 2026 Richard Rodger and other contributors, MIT License
 
-// Package main builds the C-ABI shared library: libtabnaszon.
+// Package main builds the C-ABI shared library: libtabnassemver.
 //
 // tabnas-clib-template: v1 (stamped by admin tasks/adopt-clib.sh;
 // edit the template and re-stamp, not this file).
 //
-//	go build -buildmode=c-shared -o libtabnaszon.so ./clib
+//	go build -buildmode=c-shared -o libtabnassemver.so ./clib
 //
-// zon TEXT IN, VERDICT (AND VALUE) OUT. This is one of the
+// semver TEXT IN, VERDICT (AND VALUE) OUT. This is one of the
 // per-format tabnas clibs: the grammar is fixed at build time, and per
 // ADR-12 every such library exports exactly these five symbols, so one
 // generic binding per language covers the whole fleet — which library
@@ -63,7 +63,7 @@ func tabnas_version() *C.char {
 	return C.CString(versionDoc())
 }
 
-// tabnas_grammar builds a zon parser and returns a handle to it.
+// tabnas_grammar builds a semver parser and returns a handle to it.
 // The argument is an options JSON document — RESERVED; pass (NULL, 0).
 //
 //export tabnas_grammar
@@ -75,7 +75,7 @@ func tabnas_grammar(opts *C.char, optsLen C.int) *C.char {
 	return C.CString(loadGrammar(text))
 }
 
-// tabnas_parse checks one input against the zon grammar.
+// tabnas_parse checks one input against the semver grammar.
 //
 //export tabnas_parse
 func tabnas_parse(handle C.longlong, src *C.char, srcLen C.int) *C.char {

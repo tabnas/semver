@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 
-// Embed zon-grammar.jsonic into TypeScript and Go source files.
+// Embed semver-grammar.abnf into the TypeScript and Go source files.
 // Run via: npm run embed  (or:  node embed-grammar.js)
+//
+// The grammar file at the repo root is the single source of truth; the
+// two copies between the BEGIN/END markers are generated and must never
+// be edited by hand.
 
 const fs = require('fs')
 const path = require('path')
 
-const GRAMMAR_FILE = path.join(__dirname, '..', 'zon-grammar.jsonic')
-const TS_FILE = path.join(__dirname, 'src', 'zon.ts')
-const GO_FILE = path.join(__dirname, '..', 'go', 'zon.go')
+const GRAMMAR_FILE = path.join(__dirname, '..', 'semver-grammar.abnf')
+const TS_FILE = path.join(__dirname, 'src', 'semver.ts')
+const GO_FILE = path.join(__dirname, '..', 'go', 'semver.go')
 
-const BEGIN = '// --- BEGIN EMBEDDED zon-grammar.jsonic ---'
-const END = '// --- END EMBEDDED zon-grammar.jsonic ---'
+const BEGIN = '// --- BEGIN EMBEDDED semver-grammar.abnf ---'
+const END = '// --- END EMBEDDED semver-grammar.abnf ---'
 
 const grammar = fs.readFileSync(GRAMMAR_FILE, 'utf8')
 

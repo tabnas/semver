@@ -1,9 +1,0 @@
-input	expected	opts
-'A'	"A"
-'A'	65	{"charAsNumber":true}
-'\\n'	10	{"charAsNumber":true}
-'\\u{1F600}'	128512	{"charAsNumber":true}
-'\\x41'	65	{"charAsNumber":true}
-'\\u{0}'	0	{"charAsNumber":true}
-'\\u{10FFFF}'	1114111	{"charAsNumber":true}
-'\\''	39	{"charAsNumber":true}

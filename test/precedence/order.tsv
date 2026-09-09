@@ -1,0 +1,56 @@
+version
+# Strictly ascending precedence, top to bottom, as §11 of the
+# specification defines it. Both runtimes check every pair (i, j) with
+# i < j compares -1, and the reverse 1, so this pins transitivity too.
+#
+# §11.4: a pre-release ranks below its normal version; numeric
+# identifiers numerically; alphanumeric ones in ASCII order; numeric
+# below alphanumeric; a longer identifier set above a shorter prefix.
+0.0.0-0
+0.0.0-0.0
+0.0.0-0.1
+0.0.0-1
+0.0.0-2
+0.0.0-10
+0.0.0-9007199254740991
+0.0.0--
+0.0.0--1
+0.0.0-A
+0.0.0-Z
+0.0.0-a
+0.0.0-a.0
+0.0.0-a.1
+0.0.0-a.a
+0.0.0-a0
+0.0.0-aa
+0.0.0-b
+0.0.0-z
+0.0.0
+0.0.1-alpha
+0.0.1
+0.1.0
+0.9.9
+0.10.0
+1.0.0-0.3.7
+1.0.0-alpha
+1.0.0-alpha.1
+1.0.0-alpha.beta
+1.0.0-beta
+1.0.0-beta.2
+1.0.0-beta.11
+1.0.0-rc.1
+1.0.0-rc.1.0
+1.0.0-rc.2
+1.0.0-x.7.z.92
+1.0.0
+1.0.1
+1.1.0
+1.9.0
+1.10.0
+1.11.0
+2.0.0-0
+2.0.0
+2.1.0
+2.1.1
+10.0.0
+9007199254740991.0.0
