@@ -1,0 +1,6 @@
+input	expected	opts
+.{\n  // a comment\n  .name = "x", // trailing comment\n  .version = "1.0", // version\n}	{"name":"x","version":"1.0"}
+# `//!` and `///` are Zig DOC comments and are rejected (see strict.tsv), but
+# four or more slashes is an ordinary line comment again.
+//// four slashes\n1	1
+1 // trailing\n	1

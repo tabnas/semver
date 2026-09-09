@@ -1,0 +1,63 @@
+input	expected	opts
+# Inputs the Zig 0.16.0 reference implementation REJECTS. Every verdict here
+# was taken from `std.zig.Ast` + `std.zig.ZonGen` via the oracle in
+# scripts/fetch-zigzon.sh, not decided by this parser.
+#
+# --- numeric literals -------------------------------------------------------
++1	ERROR
+.5	ERROR
+5.	ERROR
+.0	ERROR
+0123	ERROR
+00	ERROR
+0012	ERROR
+0_1	ERROR
+-0	ERROR
+-0x0	ERROR
+1__0	ERROR
+1_	ERROR
+_1	ERROR
+1_.0	ERROR
+1._0	ERROR
+1.0_	ERROR
+0x_2A	ERROR
+0x1_	ERROR
+0X2A	ERROR
+0O52	ERROR
+0B101	ERROR
+0b12	ERROR
+0o18	ERROR
+0xg	ERROR
+1abc	ERROR
+1e	ERROR
+1e+	ERROR
+1e_1	ERROR
+0b1.1	ERROR
+0o1.1	ERROR
+0.1.2	ERROR
+1e5e5	ERROR
+-nan	ERROR
+-true	ERROR
+Inf	ERROR
+infinity	ERROR
+# --- doc comments -----------------------------------------------------------
+//! doc comment\n1	ERROR
+/// doc comment\n1	ERROR
+# --- identifiers ------------------------------------------------------------
+.@""	ERROR
+.a.b	ERROR
+# --- struct / tuple shape ---------------------------------------------------
+.{ .a = 1, .a = 2 }	ERROR
+.{\n    .name = 10,\n    .name = 20,\n}	ERROR
+.{.x=1.5, .x=2.5, .x=3.5}	ERROR
+.{,}	ERROR
+.{ .a = 1 .b = 2 }	ERROR
+.{ 1 2 }	ERROR
+{ a = 1 }	ERROR
+# --- character literals -----------------------------------------------------
+''	ERROR
+'ab'	ERROR
+'\\u{110000}'	ERROR
+# --- one value per document -------------------------------------------------
+1 2	ERROR
+"a" "b"	ERROR

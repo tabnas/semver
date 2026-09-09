@@ -1,0 +1,7 @@
+input	expected	opts
+42	42
+3.14	3.14
+true	true
+false	false
+null	null
+"hello"	"hello"

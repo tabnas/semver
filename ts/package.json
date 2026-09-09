@@ -1,0 +1,67 @@
+{
+  "name": "@tabnas/zon",
+  "version": "0.5.6",
+  "description": "This plugin allows the [Tabnas](https://github.com/tabnas/parser) JSON parser to support Zig Object Notation (ZON) syntax.",
+  "main": "dist/zon.js",
+  "type": "commonjs",
+  "browser": "zon.min.js",
+  "types": "dist/zon.d.ts",
+  "homepage": "https://github.com/tabnas/zon",
+  "keywords": [
+    "zon",
+    "zig",
+    "tabnas",
+    "parser",
+    "object",
+    "json"
+  ],
+  "author": "Richard Rodger (http://richardrodger.com)",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tabnas/zon.git",
+    "directory": "ts"
+  },
+  "scripts": {
+    "corpus": "bash ../scripts/fetch-zigzon.sh",
+    "pretest": "npm run build && npm run corpus",
+    "test": "node --enable-source-maps --test \"dist-test/*.test.js\"",
+    "pretest-some": "npm run build",
+    "test-some": "node --enable-source-maps --test-name-pattern=\"$npm_config_pattern\" --test \"dist-test/*.test.js\"",
+    "pretest-watch": "npm run build",
+    "test-watch": "node --test --watch dist-test/zon.test.js",
+    "embed": "node embed-grammar.js",
+    "watch": "tsc --build src test -w",
+    "build": "node embed-grammar.js && tsc --build src test",
+    "clean": "rm -rf node_modules dist dist-test yarn.lock package-lock.json",
+    "reset": "npm run clean && npm i && npm run build && npm test",
+    "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: ts/v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag ts/v$REPO_VERSION && git push origin ts/v$REPO_VERSION;",
+    "repo-publish": "npm run clean && npm i && npm run repo-publish-quick",
+    "repo-publish-quick": "npm run build && npm run test && npm run repo-tag",
+    "repo-stage": "npm run clean && npm i && npm run repo-stage-quick",
+    "repo-stage-quick": "npm run build && npm run test && npm stage publish",
+    "repo-stage-list": "npm stage list",
+    "repo-stage-approve": "npm stage approve"
+  },
+  "license": "MIT",
+  "files": [
+    "src",
+    "dist",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@tabnas/jsonic": ">=0",
+    "@tabnas/parser": ">=0"
+  },
+  "devDependencies": {
+    "@tabnas/debug": "*",
+    "@tabnas/jsonic": "*",
+    "@tabnas/parser": "*",
+    "@tabnas/railroad": "*",
+    "@tabnas/support": "*",
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

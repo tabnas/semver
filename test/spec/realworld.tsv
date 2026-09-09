@@ -1,0 +1,2 @@
+input	expected	opts
+.{\n  .name = "example",\n  .version = "0.0.1",\n  .minimum_zig_version = "0.14.0",\n  .dependencies = .{\n    .foo = .{\n      .url = "https://example.com/foo.tar.gz",\n      .hash = "1220deadbeef",\n    },\n  },\n  .paths = .{\n    "build.zig",\n    "src",\n    "",\n  },\n}	{"name":"example","version":"0.0.1","minimum_zig_version":"0.14.0","dependencies":{"foo":{"url":"https://example.com/foo.tar.gz","hash":"1220deadbeef"}},"paths":["build.zig","src",""]}

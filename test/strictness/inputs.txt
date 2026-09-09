@@ -1,0 +1,129 @@
+# Locally authored LENIENCY PROBES.
+#
+# @tabnas/zon is a jsonic plugin, so it inherits @tabnas/jsonic's relaxed
+# lexer unless the plugin overrides it. These inputs probe exactly that seam:
+# relaxed-JSON spellings that are NOT ZON, plus the ZON spellings a strict
+# lexer could wrongly reject. This file decides the QUESTIONS; the pinned zig
+# reference implementation decides every ANSWER (see scripts/fetch-zigzon.sh,
+# which writes the verdicts to test/strictness/cases.json).
+#
+# One input per line, using the same escapes as test/spec/*.tsv: \n \r \t
+# and \\ are decoded. Blank lines and lines starting with '#' are skipped --
+# neither is a ZON document, so nothing is lost.
+1
+-1
++1
+0
+-0
+0.0
+-0.0
+1.5
+.5
+5.
+0123
+00
+1_0
+1__0
+1_
+_1
+0x2A
+0X2A
+0x_2A
+0o52
+0O52
+0b1010
+0B1010
+1e3
+1E3
+1e+3
+1e-3
+1.0e3
+0x1p4
+0x1.8p1
+inf
+-inf
+nan
+-nan
+Infinity
+NaN
+1.0f
+1n
+--1
+1-
+0xg
+0b2
+0o8
+1 2
+true false
+"a" "b"
+.foo .bar
+.a.b
+.{}.a
+.{ .a = 1 }.a
+.{ .a = 1 },
+.{ .a = 1 } .{ .b = 2 }
+1,2
+[1,2]
+{"a":1}
+{ a = 1 }
+.{ .a = 1 }}
+.{ .a = 1
+.a = 1
+.{}
+.{ }
+.{ .a = 1 }
+.{ .a = 1, }
+.{ .a = 1, .b = 2 }
+.{ .a = 1, .a = 2 }
+.{ .a = 1 .b = 2 }
+.{ .a = 1; .b = 2 }
+.{ a = 1 }
+.{ "a" = 1 }
+.{ .a: 1 }
+.{ 1, 2 }
+.{ 1, 2, }
+.{ 1 2 }
+.{ , }
+.{ .a = }
+.{ = 1 }
+.{ .@"a b" = 1 }
+.{ .@"" = 1 }
+.{ .a = .{ .b = .{ .c = 1 } } }
+.foo
+.foo_bar
+.@"foo bar"
+.@""
+.0
+.
+..
+. foo
+"hello"
+'hello'
+"a\nb"
+"a\\qb"
+"unterminated
+"\\u{1F600}"
+"\\u{110000}"
+"\\x41"
+"tab\there"
+\\line one\n\\line two
+\\only line
+'a'
+'\n'
+'\\u{1F600}'
+'\\u{110000}'
+''
+'ab'
+'unterminated
+// line comment\n42
+42 // trailing
+/* block */ 42
+.{ // c\n    .a = 1,\n}
+true
+false
+null
+undefined
+TRUE
+True
+.{ .a = null }
+.{ .a = undefined }

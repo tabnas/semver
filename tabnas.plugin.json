@@ -1,0 +1,43 @@
+{
+  "$schema": "https://tabnas.dev/schema/plugin.schema.json",
+  "name": "@tabnas/zon",
+  "go": "github.com/tabnas/zon/go",
+  "description": "Zig Object Notation (ZON) parsing for the tabnas engine.",
+  "base": "@tabnas/jsonic",
+  "engine": "@tabnas/parser",
+  "grammar": "zon-grammar.jsonic",
+  "extensions": [
+    ".zon"
+  ],
+  "languageId": "zon",
+  "pluginKind": "grammar",
+  "grammarKind": "closure",
+  "lexStream": "clean",
+  "syncGroups": [
+    "end",
+    "comma",
+    "close"
+  ],
+  "specDir": "test/spec",
+  "clib": {
+    "dir": "go/clib",
+    "library": "libtabnaszon",
+    "abi": "v1",
+    "errorCodes": [
+      "usage",
+      "grammar",
+      "handle",
+      "internal"
+    ]
+  },
+  "errorCodes": [
+    "zon_number",
+    "zon_ident",
+    "zon_char",
+    "zon_doc_comment",
+    "zon_dup_field"
+  ],
+  "docs": "https://tabnas.dev/docs/packages",
+  "repository": "https://github.com/tabnas/zon",
+  "versionSource": "ts/package.json"
+}

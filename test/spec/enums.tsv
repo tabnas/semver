@@ -1,0 +1,19 @@
+input	expected	opts
+.foo	"foo"
+.bar_baz	"bar_baz"
+.{ .kind = .red }	{"kind":"red"}
+.{ .kind = .red }	{"kind":{"$enum":"red"}}	{"enumTag":"$enum"}
+# Zig's tokenizer emits `.` separately, so whitespace and comments may sit
+# between it and the identifier.
+. foo	"foo"
+.\n  foo	"foo"
+. // c\n  foo	"foo"
+# `.@"..."` escaped identifiers: any string may name a field or an enum.
+.@"foo bar"	"foo bar"
+.@"0"	"0"
+.@"ab\\nc"	"ab\nc"
+.@"a\\"b"	"a\"b"
+.{ .@"a b" = 1 }	{"a b":1}
+.{ .@"0" = 1.5, .@"foo" = 2 }	{"0":1.5,"foo":2}
+.{ .@"x x" = .@"x x" }	{"x x":{"$enum":"x x"}}	{"enumTag":"$enum"}
+.@"foo bar"	{"$enum":"foo bar"}	{"enumTag":"$enum"}
