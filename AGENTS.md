@@ -95,7 +95,7 @@ of them.
 | [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`. |
 | [`go/clib/`](go/clib/) | `libtabnassemver`, the parser as a C shared library with the fleet's uniform five-symbol ABI. |
 | [`ts/doc/`](ts/doc/), [`go/doc/`](go/doc/) | Per-runtime Diataxis docs: `tutorial.md`, `guide.md`, `reference.md`, `concepts.md`. |
-| [`ci/`](ci/) | Staged CI workflow changes for a maintainer to promote (see [CI](#ci)). |
+| [`.github/workflows/`](.github/workflows/) | CI, releases, clib builds, status notifications and scorecard workflows (see [CI](#ci)). |
 
 ## The tabnas engine dependency
 
@@ -361,15 +361,10 @@ named sibling repos, builds them, links them into `node_modules` (and a
 `go.work` for Go), then runs `npm i && npm run build && npm test` and
 `go build ./... && go test -v ./...` here.
 
-The workflow files in `.github/workflows/` still carry the scaffold's
-dependency list and clib name; session credentials cannot write that
-directory (ADR-8), so the corrected files are **staged in
-[`ci/workflows/`](ci/workflows/)** for a maintainer to promote. Until
-`ci.yml` is promoted with `deps: "parser support bnf abnf debug"`, CI
-resolves `@tabnas/bnf` and `@tabnas/abnf` from the registry instead of
-the sibling `main` checkouts the fleet convention links. The suite passes
-either way (see the engine dependency above), but a change on a sibling's
-`main` is not exercised here until it is published.
+`ci.yml` declares `deps: "parser support bnf abnf debug"`, so CI
+builds and links the sibling `main` checkouts of the grammar toolchain.
+The clib release workflow publishes artifacts as `libtabnassemver`, and
+the npm release workflow checks and publishes `@tabnas/semver`.
 
 The repository's CodeQL default setup (the `Code Quality` runs, not a
 workflow file) still analyses Python. The scaffold's only Python, the ZON

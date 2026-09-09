@@ -1,16 +1,8 @@
-# Target: tabnas/zon -> .github/workflows/release.yml
+# Target: tabnas/semver -> .github/workflows/release.yml
 #
-# Publishes @tabnas/zon to npm via GitHub OIDC Trusted Publishing (no
+# Publishes @tabnas/semver to npm via GitHub OIDC Trusted Publishing (no
 # token), and writes the release tags. The fleet-standard shape — see
 # lsp__release.yml, where the reasoning is worked through at length.
-#
-# STAGED AS PART OF THE M9 SWEEP. release.yml was the one workflow kind
-# never brought under rollout/: ci.yml was staged for 33 repos,
-# scorecard and notify-status for 29, release.yml for 2. So ADR-16's
-# node24 sweep never reached it, and every deployed copy still pinned
-# checkout@34e11487 and setup-node@49933ea5 — node20-runtime majors.
-# Staging fixes the pins and puts the file under the applier, so the
-# next fleet-wide change reaches it without anyone remembering.
 #
 # TWO TRIGGERS:
 #   workflow_dispatch  the normal path. Bump in a reviewed PR first;
@@ -131,7 +123,7 @@ jobs:
           if [ -z "$ANCHOR" ]; then
             ANCHOR="$HEAD_C"
           elif [ "$ANCHOR" != "$HEAD_C" ]; then
-            if ! npm view "@tabnas/zon@$V" version >/dev/null 2>&1; then
+            if ! npm view "@tabnas/semver@$V" version >/dev/null 2>&1; then
               echo "::error::$V is tagged at $ANCHOR but is not on npm — publishing would ship HEAD while the tags name an older commit; resolve by hand"
               exit 1
             fi
@@ -150,8 +142,8 @@ jobs:
         run: |
           V="${{ steps.v.outputs.version }}"
           npm install -g npm@latest
-          if npm view "@tabnas/zon@$V" version >/dev/null 2>&1; then
-            echo "@tabnas/zon@$V is already on npm — skipping publish"
+          if npm view "@tabnas/semver@$V" version >/dev/null 2>&1; then
+            echo "@tabnas/semver@$V is already on npm — skipping publish"
           else
             npm i
             npm run build --if-present

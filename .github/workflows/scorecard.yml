@@ -1,4 +1,4 @@
-# Target: tabnas/zon -> .github/workflows/scorecard.yml
+# Target: tabnas/semver -> .github/workflows/scorecard.yml
 #
 name: scorecard
 
