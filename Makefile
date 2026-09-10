@@ -5,7 +5,7 @@
 # sibling checkouts linked into node_modules / a go.work (admin/scripts/link.sh).
 
 .PHONY: all build test clean build-ts build-go test-ts test-go \
-        clean-ts clean-go publish-ts publish-go tags-go reset
+        clean-ts clean-go publish-ts publish-go set-version tags-go reset
 
 all: build test
 
@@ -14,6 +14,27 @@ build: build-ts build-go
 test: test-ts test-go
 
 clean: clean-ts clean-go
+
+# --- Version ---
+
+# Set the release version everywhere: make set-version V=x.y.z
+#
+# ts/package.json "version" is the source of truth (tabnas.plugin.json
+# "versionSource" names it), and three copies must equal it: the two
+# package-lock entries npm rewrites, the TS `const VERSION` and the Go
+# `const VERSION`. ts/test/version.test.ts and go/version_test.go fail
+# the build when any of them drift, so run `make test` after this.
+set-version:
+	@test -n "$(V)" || (echo "Usage: make set-version V=x.y.z" && exit 1)
+	@echo "$(V)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$$' \
+	  || (echo "Not a semver version: $(V)" && exit 1)
+	cd ts && npm version "$(V)" --no-git-tag-version --allow-same-version >/dev/null
+	sed -i.bak "s/^const VERSION = '.*'/const VERSION = '$(V)'/" ts/src/semver.ts
+	sed -i.bak 's/^const VERSION = ".*"/const VERSION = "$(V)"/' go/semver.go
+	rm -f ts/src/semver.ts.bak go/semver.go.bak
+	@echo "--- version set to $(V) ---"
+	@grep -m1 '"version"' ts/package.json
+	@grep -h '^const VERSION' ts/src/semver.ts go/semver.go
 
 # --- TypeScript (package in ts/) ---
 build-ts:
