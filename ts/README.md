@@ -32,7 +32,7 @@ compare(tn.parse('1.0.0-alpha'), tn.parse('1.0.0')) // => -1
 format(tn.parse('1.2.3+sha.5114f85'))               // => '1.2.3+sha.5114f85'
 ```
 
-Build the instance once and reuse it — compiling the grammar is the
+Build the instance once and reuse it: compiling the grammar is the
 expensive part.
 
 ## Documentation
@@ -40,11 +40,11 @@ expensive part.
 Full documentation follows the [Diátaxis](https://diataxis.fr)
 framework:
 
-- [Tutorial](doc/tutorial.md) — a guided first parse, start to finish.
-- [How-to guide](doc/guide.md) — short recipes for individual tasks.
-- [Reference](doc/reference.md) — the public API, the value shape, and
+- [Tutorial](doc/tutorial.md). A guided first parse, start to finish.
+- [How-to guide](doc/guide.md). Short recipes for individual tasks.
+- [Reference](doc/reference.md). The public API, the value shape, and
   the complete syntax accepted.
-- [Concepts](doc/concepts.md) — how the plugin turns the specification's
+- [Concepts](doc/concepts.md). How the plugin turns the specification's
   grammar into a parser, and why.
 
 For the Go port, see [`../go/README.md`](../go/README.md).

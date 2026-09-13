@@ -9,7 +9,7 @@
 
 A grammar plugin that teaches the [Tabnas](https://github.com/tabnas/parser)
 parser to read [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
-version strings — `1.2.3-alpha.1+build.5` — exactly as the specification
+version strings (`1.2.3-alpha.1+build.5`) exactly as the specification
 defines them. Available for both TypeScript and Go, built from one ABNF
 grammar.
 
@@ -27,7 +27,7 @@ go get github.com/tabnas/semver/go@latest
 
 ## One tiny example
 
-**TypeScript** — the plugin installs on a bare Tabnas engine:
+**TypeScript.** The plugin installs on a bare Tabnas engine:
 
 ```js
 import { Tabnas } from '@tabnas/parser'
@@ -42,7 +42,7 @@ compare(tn.parse('1.0.0-beta.2'), tn.parse('1.0.0-beta.11')) // => -1
 format(tn.parse('2.0.0-rc.1+sha.abc'))                        // => '2.0.0-rc.1+sha.abc'
 ```
 
-Anything the specification does not allow is a parse error — a `v`
+Anything the specification does not allow is a parse error: a `v`
 prefix, a blank, a leading zero, an empty identifier:
 
 ```js
@@ -56,7 +56,7 @@ try { tn.parse('v1.2.3') } catch (e) { code = e.code }
 code // => 'unexpected'
 ```
 
-**Go** — `tabnassemver.Parse` is the one-call entry point:
+**Go.** `tabnassemver.Parse` is the one-call entry point:
 
 ```go
 import tabnassemver "github.com/tabnas/semver/go"
@@ -72,8 +72,8 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 ## The grammar is the parser
 
 The specification publishes its grammar in BNF. This plugin transcribes
-it into RFC 5234 ABNF — [`semver-grammar.abnf`](semver-grammar.abnf), one
-production per production of the specification, with the same names —
+it into RFC 5234 ABNF ([`semver-grammar.abnf`](semver-grammar.abnf), one
+production per production of the specification, with the same names)
 and [`@tabnas/abnf`](https://github.com/tabnas/abnf) compiles that text
 into the engine's rule set when the plugin is installed. Nothing in the
 plugin's code decides what a valid version is. The two places the grammar
@@ -92,10 +92,10 @@ build        = build-identifier *( "." build-identifier )
 `@tabnas/semver` accepts exactly the strings the semver.org grammar
 accepts, and produces the parts the specification names for each. The
 judge is the regular expression semver.org publishes for the purpose: both
-runtimes generate the same corpus of **58,449 strings** — every string of
+runtimes generate the same corpus of **58,449 strings**: every string of
 length up to five over an eight-character alphabet, every short
 pre-release and build tail on five version-core shapes, thousands of
-mutated valid versions, and random noise — and check verdict, value and
+mutated valid versions, and random noise. They check verdict, value and
 round-trip against it on every test run. The census is pinned in both
 runtimes:
 
@@ -119,7 +119,7 @@ See [`AGENTS.md`](AGENTS.md#conformance-claim) for the full details.
 ## Documentation
 
 Full documentation follows the [Diátaxis](https://diataxis.fr)
-framework — one file per quadrant, per language:
+framework: one file per quadrant, per language:
 
 | | TypeScript | Go |
 |---|---|---|
