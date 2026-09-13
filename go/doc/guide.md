@@ -13,7 +13,7 @@ import tabnassemver "github.com/tabnas/semver/go"
 
 ## Parse a single string
 
-`tabnassemver.Parse` is the one-call entry point — pass a version
+`tabnassemver.Parse` is the one-call entry point. Pass a version
 string, get a value and an error:
 
 ```go
@@ -32,7 +32,7 @@ from several goroutines at once.
 
 ## Validate without using the value
 
-Only the error matters — the grammar is the only acceptor, so a
+Only the error matters. The grammar is the only acceptor, so a
 successful parse *is* the validation:
 
 ```go
@@ -42,9 +42,9 @@ func isSemver(s string) bool {
 }
 
 isSemver("1.0.0-rc.1") // true
-isSemver("v1.0.0")     // false — no prefix of any kind
-isSemver("1.0")        // false — three components, always
-isSemver("")           // false — the empty string is not a version
+isSemver("v1.0.0")     // false: no prefix of any kind
+isSemver("1.0")        // false: three components, always
+isSemver("")           // false: the empty string is not a version
 ```
 
 A `v` prefix, a blank or newline anywhere, a leading zero in
@@ -63,7 +63,7 @@ if err != nil {
 }
 m := v.(map[string]any)
 
-major := m["major"].(float64)  // float64(2) — but see the *big.Int recipe
+major := m["major"].(float64)  // float64(2), but see the *big.Int recipe
 pre := m["prerelease"].([]any) // []any{"rc", float64(3)}
 for _, id := range pre {
     switch id.(type) {
@@ -80,8 +80,8 @@ name := build[0].(string)      // build identifiers are always strings
 |---|---|
 | `major`, `minor`, `patch` | `float64`, or `*big.Int` above `MaxSafeInteger` (2^53 − 1) |
 | a pre-release identifier that is all digits | `float64` / `*big.Int`, same rule |
-| any other pre-release identifier | `string` — `"alpha"`, `"1a"`, `"01a"`, `"-"` |
-| a build identifier | `string`, always — `"001"` keeps its zeros |
+| any other pre-release identifier | `string`: `"alpha"`, `"1a"`, `"01a"`, `"-"` |
+| a build identifier | `string`, always: `"001"` keeps its zeros |
 
 `prerelease` and `build` are present on every value; without a `-` or
 `+` part they are an empty `[]any{}`, never `nil`. A bare `.(float64)`
@@ -106,11 +106,11 @@ sort.Slice(vs, func(i, k int) bool {
 
 The order is the specification's own: `major`, `minor`, `patch`
 numerically; a pre-release below its normal version; then identifier by
-identifier — numeric ones numerically (`beta.2` before `beta.11`),
+identifier: numeric ones numerically (`beta.2` before `beta.11`),
 alphanumeric ones in ASCII order, numeric below alphanumeric, and a
 longer list of otherwise-equal identifiers above the shorter one.
 `Compare` errs only when an argument is not a parsed value (a string, or
-a map with a wrong-typed field), which values from `Parse` never are —
+a map with a wrong-typed field), which values from `Parse` never are,
 hence the discarded error. The highest version is the last element.
 
 ## Detect a pre-release
@@ -130,7 +130,7 @@ isPrerelease(b) // false
 ```
 
 A pre-release ranks below the release it precedes but above every
-earlier release — `1.0.0-alpha` < `1.0.0` < `2.0.0-0` — so the highest
+earlier release (`1.0.0-alpha` < `1.0.0` < `2.0.0-0`) so the highest
 element of a sorted list can be a pre-release. Filter with
 `isPrerelease` before sorting when you want the highest stable release.
 
@@ -139,7 +139,7 @@ element of a sorted list can be a pre-release. Filter with
 `Compare` already ignores it, as the specification says (§10, §11.1):
 `1.0.0+a` and `1.0.0+b` compare `0`, the same version. To drop the
 metadata from the string, copy the value with an empty `build` and
-format it — `Format` writes the `+` part only when `build` holds at
+format it. `Format` writes the `+` part only when `build` holds at
 least one identifier:
 
 ```go
@@ -160,7 +160,7 @@ stripBuild(v) // "1.0.0-beta", nil
 ## Round-trip with Format
 
 `Format` renders a value back to its string. For a value that came out
-of `Parse` the result is the input, character for character — nothing
+of `Parse` the result is the input, character for character: nothing
 in a valid version is normalised away, so a value can always be traced
 back to the text it came from:
 
@@ -183,7 +183,7 @@ s, err := tabnassemver.Format(map[string]any{
 component is not a non-negative integer (`1.5`), when `prerelease` or
 `build` is not a `[]any`, or when a build identifier is not a string. It
 checks shape, not grammar: `"a_b"` under `prerelease` renders as
-`1.0.0-a_b`, which `Parse` rejects — to be sure a hand-built value is a
+`1.0.0-a_b`, which `Parse` rejects. To be sure a hand-built value is a
 valid version, parse the formatted string back.
 
 ## Handle integers beyond 2^53 − 1
@@ -197,14 +197,14 @@ a `*big.Int` from `math/big`, exact to the digit, never rounded:
 ```go
 v, _ := tabnassemver.Parse("9007199254740991.9007199254740992.0")
 m := v.(map[string]any)
-m["major"] // float64(9007199254740991) — the last safe integer
-m["minor"] // *big.Int 9007199254740992 — one more, no longer safe
+m["major"] // float64(9007199254740991): the last safe integer
+m["minor"] // *big.Int 9007199254740992: one more, no longer safe
 m["patch"] // float64(0)
 ```
 
 To work with one type, lift the `float64` case with
-`big.NewInt(int64(x))` — exact, since every `float64` component is an
-integer at most 2^53 − 1. `Compare` handles the mixed case itself
+`big.NewInt(int64(x))`, which is exact since every `float64` component
+is an integer at most 2^53 − 1. `Compare` handles the mixed case itself
 (`9007199254740991.0.0` ranks below `9007199254740992.0.0`) and `Format`
 renders a `*big.Int` as plain digits, so neither needs help. A build
 identifier is never converted: `1.0.0+9007199254740993` keeps
@@ -241,11 +241,11 @@ panic there means a broken build, never a bad input.
 
 Every rejection is one error type and one code: a `*tabnas.TabnasError`
 whose `Code` is `"unexpected"`, raised where the grammar has no
-alternative for what comes next — usually at the offending character,
+alternative for what comes next, usually at the offending character,
 though a lookahead failure can be reported earlier (`1.02.3` fails at
 column 1). The plugin declares no codes of its own (see
 [AGENTS.md](../../AGENTS.md), "Error codes"), so `Code` never says *why*
-a string was rejected — the position, the offending text and the hint
+a string was rejected. The position, the offending text and the hint
 do:
 
 ```go
@@ -257,8 +257,8 @@ var te *tabnas.TabnasError
 if errors.As(err, &te) {
     te.Code // "unexpected"
     te.Row  // 1
-    te.Col  // 8 — 1-based column of the offending character
-    te.Src  // "_" — the offending text
+    te.Col  // 8: 1-based column of the offending character
+    te.Src  // "_": the offending text
     te.Hint // what a version has to look like, with a link to semver.org
 }
 
@@ -299,7 +299,7 @@ v, err := j.Parse("1.2.3")
 `j.UseDefaults(tabnassemver.Semver, tabnassemver.Defaults)` is the same
 thing spelled the way every tabnas plugin is installed, and is what
 `Make` itself calls; `Defaults` is an empty map because the plugin has
-no options — the grammar is the specification, and there is nothing to
+no options: the grammar is the specification, and there is nothing to
 configure. Installing the plugin a second time on the same instance is
 a no-op, not a second grammar.
 
@@ -307,9 +307,9 @@ The plugin installs the specification's grammar and, on the same spec,
 switches every default lexer off (whitespace, line ends, comments,
 strings, numbers, bare words, keyword values), unbinds the engine's
 JSON punctuation tokens (`{ } [ ] : ,`) and turns `lex.empty` off, so
-the instance parses versions and nothing else — not even the empty
+the instance parses versions and nothing else, not even the empty
 string, which is an error rather than `nil`. Do not turn any of those
-back on — it would then accept strings the specification rejects.
+back on: it would then accept strings the specification rejects.
 
 ## Get the grammar text
 
@@ -329,7 +329,7 @@ fmt.Print(tabnassemver.Grammar)
 ```
 
 Use it to feed grammar tooling or to show a user exactly what is
-accepted. `VERSION` (`"0.1.0"`) is the module's own version — itself a
+accepted. `VERSION` (`"0.1.0"`) is the module's own version, itself a
 valid version string, so `tabnassemver.Parse(tabnassemver.VERSION)`
 succeeds.
 

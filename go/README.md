@@ -19,7 +19,7 @@ import tabnassemver "github.com/tabnas/semver/go"
 
 ## One example
 
-`tabnassemver.Parse` is the one-call entry point — pass a string, get a
+`tabnassemver.Parse` is the one-call entry point: pass a string, get a
 value and an `error`:
 
 ```go
@@ -44,11 +44,11 @@ on one goroutine.
 Full documentation follows the [Diátaxis](https://diataxis.fr)
 framework:
 
-- [Tutorial](doc/tutorial.md) — a guided first parse, start to finish.
-- [How-to guide](doc/guide.md) — short recipes for individual tasks.
-- [Reference](doc/reference.md) — the public API, the value shape, and
+- [Tutorial](doc/tutorial.md). A guided first parse, start to finish.
+- [How-to guide](doc/guide.md). Short recipes for individual tasks.
+- [Reference](doc/reference.md). The public API, the value shape, and
   the complete syntax accepted.
-- [Concepts](doc/concepts.md) — how the plugin turns the specification's
+- [Concepts](doc/concepts.md). How the plugin turns the specification's
   grammar into a parser, and how the Go version differs from TypeScript.
 
 For the canonical TypeScript implementation, see

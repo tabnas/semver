@@ -36,9 +36,9 @@ build time: `@tabnas/abnf` must be resolvable at runtime.
 | `grammar` | `string` | The ABNF text the plugin compiles. See [grammar](#grammar). |
 | `VERSION` | `string` | This package's version, always equal to `package.json` "version" (currently `'0.1.0'`). |
 | `Version` | type | The parse result (see [The value](#the-value)). |
-| `PrereleaseIdentifier` | type | `string \| SemverNumber` — one pre-release identifier. |
-| `SemverNumber` | type | `number \| bigint` — one integer component. |
-| `SemverOptions` | type | `Record<string, never>` — the (empty) options shape. |
+| `PrereleaseIdentifier` | type | `string \| SemverNumber`, one pre-release identifier. |
+| `SemverNumber` | type | `number \| bigint`, one integer component. |
+| `SemverOptions` | type | `Record<string, never>`, the (empty) options shape. |
 
 ```typescript
 type SemverNumber = number | bigint
@@ -77,12 +77,12 @@ tn.parse('1.2.3-alpha.1+build.5') // => { major: 1, minor: 2, patch: 3, prerelea
 Registers and immediately applies the plugin. Returns the engine, so
 registrations chain. `options` is optional and unused: the plugin
 reads no option (see [Options](#options)). Installing compiles the
-embedded ABNF (`grammar`) with `@tabnas/abnf` — start rule `semver`, group tag
-`semver` — into the engine's rule set, strips the compiler's
+embedded ABNF (`grammar`) with `@tabnas/abnf` (start rule `semver`, group tag
+`semver`) into the engine's rule set, strips the compiler's
 tree-building actions out of it with `toRecognitionSpec`, so no parse
 tree is built, attaches the one semantic action (an after-close hook on
 `__start__`, the compiler's end-of-source wrapper, which builds the
-`Version` from the accepted text — see
+`Version` from the accepted text; see
 [concepts](concepts.md#why-the-value-is-built-from-the-accepted-text)),
 applies the lexer settings under [Tokens](#tokens), and sets the `hint`
 under [Errors](#errors). Compiling is the expensive step; build one
@@ -188,7 +188,7 @@ specification section 11, applied in this order:
    right, stopping at the first difference (11.4):
    - two numeric identifiers compare numerically (11.4.1);
    - two alphanumeric identifiers compare lexically in ASCII order
-     (11.4.2) — so `'Z'` ranks below `'a'`;
+     (11.4.2), so `'Z'` ranks below `'a'`;
    - a numeric identifier ranks below an alphanumeric one (11.4.3);
    - when every identifier of the shorter list equals its counterpart,
      the longer list ranks higher (11.4.4).
@@ -214,9 +214,9 @@ compare(tn.parse('2.1.1'), tn.parse('2.1.0')) // => 1
 The specification's own chain holds in full: `1.0.0-alpha` <
 `1.0.0-alpha.1` < `1.0.0-alpha.beta` < `1.0.0-beta` < `1.0.0-beta.2` <
 `1.0.0-beta.11` < `1.0.0-rc.1` < `1.0.0`, and `1.0.0` < `2.0.0` <
-`2.1.0` < `2.1.1`. `compare` is a consistent comparator — a total
+`2.1.0` < `2.1.1`. `compare` is a consistent comparator (a total
 preorder, since versions that differ only in build metadata compare
-`0` — and can be passed to `Array.prototype.sort` as is. It does not
+`0`) and can be passed to `Array.prototype.sort` as is. It does not
 validate its arguments: pass values that came from `parse` or that
 satisfy `Version`.
 
@@ -254,7 +254,7 @@ The text of [`semver-grammar.abnf`](../../semver-grammar.abnf),
 comments included, exactly as the plugin compiles it: the embedded copy
 is the file's content preceded by one newline (`grammar === '\n' +
 file`). It is exported for tooling (documentation, railroad diagrams, a
-second compiler); it is a plain string constant, not a hook — the plugin
+second compiler); it is a plain string constant, not a hook: the plugin
 compiles the same embedded literal and reads nothing back from the
 export.
 
@@ -364,14 +364,14 @@ one token; there are no multi-character tokens.
 
 Everything the engine lexes by default is switched off: `space`,
 `line`, `comment`, `string`, `number`, `text` and `value` are all
-`lex: false`. The engine's six JSON punctuation tokens — `#OB` `{`,
-`#CB` `}`, `#OS` `[`, `#CS` `]`, `#CL` `:`, `#CA` `,` — are unbound
+`lex: false`. The engine's six JSON punctuation tokens (`#OB` `{`,
+`#CB` `}`, `#OS` `[`, `#CS` `]`, `#CL` `:`, `#CA` `,`) are unbound
 (their names stay registered, so introspection still lists them, but no
 source text produces them). `lex.empty` is `false`, so the empty string
 is an error rather than the engine's default `undefined`.
 
-The effect: a character the grammar does not name — a blank, a tab, a
-newline, a quote, a `#`, a `v` — has no matcher at all and is reported
+The effect: a character the grammar does not name (a blank, a tab, a
+newline, a quote, a `#`, a `v`) has no matcher at all and is reported
 as `unexpected` where it stands, never skipped as whitespace or
 swallowed as a comment or string.
 
@@ -428,7 +428,7 @@ below is the structured shape.
 | `row`, `col` | Position of the offending character, 1-based. |
 | `pos` | Offset of the offending character, 0-based. |
 | `len` | Length of the offending text (`0` when the input ended too early). |
-| `rule` | The rule active at the failure — often one of the compiler's helper rules (`_gen48_star_digit`, say) or its `__start__` wrapper. |
+| `rule` | The rule active at the failure, often one of the compiler's helper rules (`_gen48_star_digit`, say) or its `__start__` wrapper. |
 | `ruleStack` | The rule names from `__start__` down to `rule`. |
 | `token` | `{ name, src }`: the token the lexer produced and its source text. When the input ended too early it is the end token `#ZZ` with `src` `''` (the empty string reports an empty `name` too). |
 | `expected` | The token names the active rule could have accepted. |
@@ -486,9 +486,9 @@ may move with a compiler change; the shared fixtures pin
 
 There are **no plugin-specific error codes**: every rejection is the
 engine's base `unexpected`, and the hint carries the explanation.
-`tabnas.plugin.json` lists an empty `errorCodes`. The reason — the
+`tabnas.plugin.json` lists an empty `errorCodes`. The reason (the
 grammar is the sole acceptor, and the ABNF compiler offers no safe place
-for an error production — is in
+for an error production) is in
 [concepts](concepts.md#why-there-are-no-error-codes) and in
 [`AGENTS.md`](../../AGENTS.md), "Error codes".
 
@@ -497,7 +497,7 @@ for an error production — is in
 Installing the plugin compiles the ABNF into the engine's rule set (150
 rules): roughly 50–75 ms on a typical machine. A parse on an installed
 engine is on the order of 100 µs. The two differ by roughly three
-orders of magnitude, so build one instance — at module load, say — and
+orders of magnitude, so build one instance (at module load, say) and
 reuse it for every parse; the instance holds no per-parse state. There
 is no module-level cached instance and no convenience `parse()` in this
 package; the engine is yours to build and keep.

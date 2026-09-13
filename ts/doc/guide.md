@@ -40,7 +40,7 @@ Semver.defaults // => {}
 ```
 
 `new Tabnas({ plugins: [Semver] })` builds the same instance. There are
-no options — `Semver.defaults` is `{}` — so `.use(Semver, {})` is
+no options (`Semver.defaults` is `{}`) so `.use(Semver, {})` is
 accepted and changes nothing.
 
 Build the instance once and keep it, as a module-level constant.
@@ -51,7 +51,7 @@ dependent); a parse takes about 100 µs, a thousand times less.
 ## Validate a string without using the value
 
 There is no boolean API: given a string, `tn.parse` returns the value
-or throws. Wrap it, and test the error's `code` — every rejection is
+or throws. Wrap it, and test the error's `code`: every rejection is
 the engine's `unexpected` code, so anything else is a bug worth
 rethrowing, not an invalid version. Check the type first: the engine
 parses strings only and hands any other value back untouched
@@ -84,8 +84,8 @@ isSemver(123) // => false
 isSemver(undefined) // => false
 ```
 
-The plugin never trims — every default engine lexer (whitespace, line
-ends, comments, strings, numbers, bare words) is switched off — so a
+The plugin never trims. Every default engine lexer (whitespace, line
+ends, comments, strings, numbers, bare words) is switched off, so a
 leading or trailing blank, a tab or a newline is rejected like any
 other character. If the text comes from a file or a command line that
 may carry one, `text.trim()` before parsing is your decision, not the
@@ -127,7 +127,7 @@ precedence.
 ## Sort a list of versions
 
 `compare(a, b)` returns `-1`, `0` or `1` by the specification's
-precedence rules (§11) — exactly the comparator `Array.prototype.sort`
+precedence rules (§11), exactly the comparator `Array.prototype.sort`
 takes. Parse the strings first, sort the values, and `format` them back
 if you need strings again:
 
@@ -186,7 +186,7 @@ specification). Two versions that differ only in build metadata have
 the same precedence, and a version with metadata equals the same
 version without it. Two consequences to plan for: `Array.prototype.sort`
 is stable, so versions of equal precedence keep their input order; and
-if you need one key per precedence class — to deduplicate, say — build
+if you need one key per precedence class (to deduplicate, say) build
 it from the value with `build` cleared.
 
 ```js
@@ -206,17 +206,17 @@ precedenceKey(tn.parse('1.0.0-alpha+exp.sha.5114f85')) // => '1.0.0-alpha'
 ```
 
 When you do want to tell two builds of the same version apart, compare
-`build` yourself — or the formatted strings, since `format` keeps it.
+`build` yourself, or the formatted strings, since `format` keeps it.
 
 ## Render a value back to a string
 
 `format` turns a value into its version string. For a value that came
-out of the parser it is the exact input, character for character — the
+out of the parser it is the exact input, character for character; the
 plugin never normalises, because the grammar admits nothing that could
 be normalised. The conformance suite checks this round trip on every
 accepted string of its corpus. `format` also renders a value you built
 by hand, but it does not check what you give it: if a hand-built value
-must be a valid version, parse the result — the grammar is the only
+must be a valid version, parse the result; the grammar is the only
 judge.
 
 ```js
@@ -264,7 +264,7 @@ tn.parse('1.0.0-18446744073709551616').prerelease // => [18446744073709551616n]
 
 `compare` and `format` take both representations, and JavaScript's
 `<` and `>` compare a `number` with a `bigint` correctly. Arithmetic
-does not mix them — `v.major + 1` throws a `TypeError` — so convert
+does not mix them (`v.major + 1` throws a `TypeError`) so convert
 with `BigInt()`, which is exact for a safe integer too. `JSON.stringify`
 throws on a `bigint` as well; supply a replacer that renders it as a
 digit string, which is what `format` does.
@@ -297,8 +297,8 @@ the one-line `message`, the `hint`, the position as `row`, `col`,
 `pos` and `len`, the input as `src`, and the grammar `rule` that was
 active at the failure (which may be a compiler-generated helper name).
 The position is where the engine gave up: usually the first character
-the grammar could not place — for `'1.2.3 '` the trailing blank at
-column 6 — but a failure caught on lookahead can be reported earlier
+the grammar could not place (for `'1.2.3 '` the trailing blank at
+column 6) but a failure caught on lookahead can be reported earlier
 (`01.2.3` at the `0`), and an identifier cut short at the end of
 the input (`1.2.3-01`, with `len` 0).
 
@@ -336,16 +336,16 @@ col // => 6
 
 There are no plugin-specific error codes: `unexpected` is the code for
 every rejection, so if you must tell rejections apart, look at the
-input and the position, not the code — and treat the position as a
+input and the position, not the code, and treat the position as a
 diagnostic, not a contract: at a lookahead failure it is an engine
 detail, and the Go port may report a different column for the same
 string. Treat `src` and every identifier in a value as untrusted
-text — see [AGENTS.md](../../AGENTS.md#untrusted-input).
+text; see [AGENTS.md](../../AGENTS.md#untrusted-input).
 
 ## Get the ABNF text for tooling
 
 The `grammar` export is the RFC 5234 ABNF the plugin compiles at
-install time — the repository's [`semver-grammar.abnf`](../../semver-grammar.abnf),
+install time: the repository's [`semver-grammar.abnf`](../../semver-grammar.abnf),
 comments included, embedded verbatim (the export carries one extra
 leading newline, from the template literal it lives in). `VERSION` is
 the package version.
@@ -364,7 +364,7 @@ productions.includes('pre-release-identifier') // => true
 ```
 
 Write it out for any tool that reads ABNF, or hand it to
-`@tabnas/abnf` yourself — `abnfConvert(grammar, { start: 'semver', tag: 'semver' })`
+`@tabnas/abnf` yourself. `abnfConvert(grammar, { start: 'semver', tag: 'semver' })`
 is the compile step the plugin performs, before it adds its one action,
 switches every default lexer off, unbinds the engine's JSON punctuation
 tokens and refuses the empty string (the [concepts](concepts.md) page

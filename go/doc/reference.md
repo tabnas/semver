@@ -26,10 +26,10 @@ import (
 | Module | `github.com/tabnas/semver/go` |
 | Package | `tabnassemver` |
 | Engine | `github.com/tabnas/parser/go` (imported as `tabnas`) |
-| Compiler | `github.com/tabnas/abnf/go` — compiles the grammar at install time; pulls in `github.com/tabnas/bnf/go` |
-| Test-only | `github.com/tabnas/support/go` — the shared-fixture runner |
+| Compiler | `github.com/tabnas/abnf/go`, compiles the grammar at install time; pulls in `github.com/tabnas/bnf/go` |
+| Test-only | `github.com/tabnas/support/go`, the shared-fixture runner |
 | Grammar | [`semver-grammar.abnf`](../../semver-grammar.abnf), embedded verbatim in [`semver.go`](../semver.go) |
-| Options | none — `Defaults` is an empty map |
+| Options | none (`Defaults` is an empty map) |
 
 The dependencies are required at the versions pinned in
 [`go.mod`](../go.mod); there is no `replace` directive.
@@ -61,7 +61,7 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 ### `func Make() *tabnas.Tabnas`
 
 Returns a new engine with the plugin installed: `tabnas.Make()` followed
-by `j.UseDefaults(Semver, Defaults)`. Build one and reuse it — installing
+by `j.UseDefaults(Semver, Defaults)`. Build one and reuse it: installing
 compiles the grammar, which dominates a parse by orders of magnitude. The
 instance is **not** safe for concurrent `Parse` calls; use
 `tabnassemver.Parse` for a shared one, or one instance per goroutine.
@@ -84,13 +84,13 @@ The plugin function, of the engine's `tabnas.Plugin` type
 ignored, as there are no options. Installing compiles `Grammar` with
 `abnf.Abnf(grammarText, &abnf.AbnfConvertOptions{Start: "semver", Tag: "semver"})`,
 strips the compiler's tree-building actions out of the spec so that no
-parse tree is built, attaches the plugin's one action — an after-close
-hook on `__start__`, the compiler's end-of-source wrapper, which builds
-the value from the accepted text (see
-[concepts](concepts.md#why-the-value-is-built-from-the-accepted-text))
-— and applies the [lexer configuration](#tokens-and-lexer-configuration)
-and the `unexpected` [hint](#errors), all through one `j.Grammar(spec)`
-call.
+parse tree is built, attaches the plugin's one action, and applies
+the [lexer configuration](#tokens-and-lexer-configuration) and the
+`unexpected` [hint](#errors), all through one `j.Grammar(spec)` call.
+That one action is an after-close hook on `__start__`, the compiler's
+end-of-source wrapper, which builds the value from the accepted text
+(see
+[concepts](concepts.md#why-the-value-is-built-from-the-accepted-text)).
 
 It is idempotent: the first call sets the decoration `semver-init` on the
 instance, and a later call returns `nil` without compiling again. It
@@ -164,7 +164,7 @@ the plugin has no options. It mirrors `Semver.defaults` in TypeScript.
 
 ### `const Grammar`
 
-The grammar as ABNF text — the same string the plugin compiles, which is
+The grammar as ABNF text, the same string the plugin compiles, which is
 [`semver-grammar.abnf`](../../semver-grammar.abnf) verbatim, comments
 included. Exported for tooling; it is the constant the plugin itself
 compiles (`Grammar = grammarText`), not a second copy.
@@ -207,9 +207,9 @@ case *big.Int: // above MaxSafeInteger
 
 **Pre-release identifiers.** An identifier that is all digits is numeric
 and becomes a `float64` (or `*big.Int`, at the same boundary); the
-grammar has already excluded a leading zero there. Any other identifier —
-one with a letter or hyphen anywhere in it, leading zeros included — is a
-`string`: `1.0.0-0.10.a1.1a.01a.-1` gives
+grammar has already excluded a leading zero there. Any other identifier
+(one with a letter or hyphen anywhere in it, leading zeros included) is
+a `string`: `1.0.0-0.10.a1.1a.01a.-1` gives
 `[]any{float64(0), float64(10), "a1", "1a", "01a", "-1"}`. The
 distinction carries the specification's kind-dependent comparison rules
 (§11.4.1–11.4.3): numeric identifiers compare numerically, alphanumeric
@@ -252,7 +252,7 @@ letter                 = %x41-5A / %x61-7A
 ```
 
 `pre-release-identifier` and `build-identifier` differ from the
-specification's shape without changing its language — the first is
+specification's shape without changing its language: the first is
 factored on its initial character, the second is the union of
 `<alphanumeric identifier>` and `<digits>`; the file explains both
 inline, and [concepts](concepts.md) covers why the compiler needs them.
@@ -266,7 +266,7 @@ inline, and [concepts](concepts.md) covers why the compiler needs them.
 | `1.0.0-0.3.7` | `prerelease` `[]any{float64(0), float64(3), float64(7)}` |
 | `1.0.0-x.7.z.92` | `prerelease` `[]any{"x", float64(7), "z", float64(92)}` |
 | `1.0.0-x-y-z.--` | `prerelease` `[]any{"x-y-z", "--"}` |
-| `1.0.0-01a` | `prerelease` `[]any{"01a"}` — alphanumeric, so leading zeros are allowed |
+| `1.0.0-01a` | `prerelease` `[]any{"01a"}`, alphanumeric, so leading zeros are allowed |
 | `1.0.0-alpha+001` | `prerelease` `[]any{"alpha"}`, `build` `[]any{"001"}` |
 | `1.0.0+20130313144700` | `build` `[]any{"20130313144700"}` |
 | `1.0.0-beta+exp.sha.5114f85` | `prerelease` `[]any{"beta"}`, `build` `[]any{"exp", "sha", "5114f85"}` |
@@ -317,8 +317,8 @@ can be lexed at any lookahead slot (fixed tokens carry no such flag):
 
 The names appear in diagnostics (`token.name` and `expected` below); the
 TypeScript engine spells the class names differently
-(`#RX___U0031__U0039`, ...). The seven are pairwise disjoint, so no
-character can be lexed two ways.
+(`#RX___U0031__U0039` for the first of these). The seven are pairwise
+disjoint, so no character can be lexed two ways.
 
 **Everything else is off.** On the compiled spec's options the plugin
 sets:
@@ -341,8 +341,8 @@ a rule's expected tokens first.
 Every alternate the plugin installs carries the group tag `semver` (the
 compiler's `Tag` option; the `__start__` wrapper's close alternate
 carries `semver,end`). The tag identifies the plugin's alternates in
-introspection. Excluding it removes the whole grammar — the plugin
-installs nothing else — so every input is then rejected with
+introspection. Excluding it removes the whole grammar (the plugin
+installs nothing else), so every input is then rejected with
 `unexpected` at column 1:
 
 ```go
@@ -370,10 +370,10 @@ if te, ok := err.(*tabnas.TabnasError); ok {
 | `Detail` | `string` | `unexpected character(s): <src>` |
 | `Row`, `Col` | `int` | 1-based line and column of the offending character |
 | `Pos` | `int` | 0-based offset of the offending character (bytes; the JSON `pos` below is in characters) |
-| `Src` | `string` | the offending text — one character, or `""` when the failure is at the end of the input (`1.0.0-01`, the empty string) |
+| `Src` | `string` | the offending text: one character, or `""` when the failure is at the end of the input (`1.0.0-01`, the empty string) |
 | `Hint` | `string` | the plugin's explanation of what a version must look like |
 
-`err.Error()` renders the engine's multi-line message — the
+`err.Error()` renders the engine's multi-line message: the
 `[tabnas/unexpected]: unexpected character(s): v` header, the location
 `--> <no-file>:1:1`, the source line with a caret under the character,
 the hint, and an `--internal:` suffix naming the rule and token. The text
@@ -438,8 +438,8 @@ at the `1`. Compare on `Code`, not on `Col`.
 
 ## Performance
 
-Installing the plugin compiles the ABNF into the engine's rule set —
-about 10 ms in Go — and a parse of a typical version takes well under
+Installing the plugin compiles the ABNF into the engine's rule set
+(about 10 ms in Go) and a parse of a typical version takes well under
 100 µs. Build one engine and reuse it, or call `tabnassemver.Parse`,
 which does that for you; `perf_test.go` pins `Parse` to within a small
 factor of instance reuse, so a regression that rebuilt the grammar per

@@ -1,4 +1,4 @@
-# Tutorial — your first semver parse
+# Tutorial: your first semver parse
 
 This walks you from nothing to a working parse, then through a
 comparison and a parse error. Follow it in order; each step builds on
@@ -14,8 +14,8 @@ syntax, see the [reference](reference.md). For how it all works, see
 ## 1. Install
 
 `@tabnas/semver` is a grammar plugin: it has no parser of its own. It
-runs on the Tabnas engine, and its grammar — the Semantic Versioning
-2.0.0 grammar, written as ABNF — is compiled by `@tabnas/abnf` when the
+runs on the Tabnas engine, and its grammar (the Semantic Versioning
+2.0.0 grammar, written as ABNF) is compiled by `@tabnas/abnf` when the
 plugin is installed. Install all three:
 
 ```bash
@@ -90,9 +90,9 @@ tn.parse('1.0.0-alpha+001').build // => ['001']
 ```
 
 Look at the `1` and the `'5'`. In the pre-release part, an identifier made
-only of digits is *numeric* and becomes a number — the specification
+only of digits is *numeric* and becomes a number (the specification
 compares numeric identifiers numerically, so the value keeps the
-distinction — while an identifier containing a letter or a hyphen is
+distinction) while an identifier containing a letter or a hyphen is
 *alphanumeric* and stays a string. Build identifiers are always
 strings: `5` comes back as `'5'`, and `001` keeps its zeros, because
 build metadata plays no part in ordering. `format` renders a value
@@ -129,10 +129,10 @@ ordered // => ['1.0.0-alpha', '1.0.0-beta.2', '1.0.0-beta.11', '1.0.0']
 
 Reading down the chain: major, minor and patch compare numerically; a
 pre-release version ranks below its normal version (`1.0.0-rc.1` <
-`1.0.0`); pre-release identifiers compare left to right — numeric ones
-numerically (`beta.2` < `beta.11`, not alphabetically), alphanumeric
-ones in ASCII order, and a numeric identifier always below an
-alphanumeric one — and when every shared identifier is equal the longer
+`1.0.0`); pre-release identifiers compare left to right (numeric ones
+numerically, so `beta.2` < `beta.11` rather than alphabetically;
+alphanumeric ones in ASCII order; and a numeric identifier always below
+an alphanumeric one) and when every shared identifier is equal the longer
 list ranks higher (`alpha` < `alpha.1`). Build metadata is ignored,
 which is why `1.0.0+a` and `1.0.0+b` compare equal. Because the result
 is `-1`, `0` or `1`, `compare` works directly as a sort comparator.
@@ -171,7 +171,7 @@ try { tn.parse('1.2.3-01') } catch (e) { code = e.code }
 code // => 'unexpected'
 ```
 
-Every rejection carries the same code, `unexpected` — a leading zero in
+Every rejection carries the same code, `unexpected`: a leading zero in
 a numeric pre-release identifier, whitespace anywhere, an empty
 identifier and the empty string all raise it. The plugin declares no
 error codes of its own: the grammar is the sole judge of validity, so
@@ -185,10 +185,10 @@ produces, alongside `status`, `code`, `row`, `col`, `pos` and `len`.
 
 ## Where to go next
 
-- [How-to guide](guide.md) — focused recipes for individual tasks.
-- [Reference](reference.md) — the public API, the value shape, every
+- [How-to guide](guide.md). Focused recipes for individual tasks.
+- [Reference](reference.md). The public API, the value shape, every
   accepted syntax, and the error fields.
-- [Concepts](concepts.md) — how the specification's grammar becomes the
+- [Concepts](concepts.md). How the specification's grammar becomes the
   parser, and why the values look the way they do.
-- [`semver-grammar.abnf`](../../semver-grammar.abnf) — the grammar
+- [`semver-grammar.abnf`](../../semver-grammar.abnf). The grammar
   itself, which is also exported as `grammar`.

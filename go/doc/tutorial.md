@@ -1,4 +1,4 @@
-# Tutorial — your first semver parse (Go)
+# Tutorial: your first semver parse (Go)
 
 This walks you from nothing to a working parse, then through precedence,
 rendering and one error. Follow it in order; each step builds on the
@@ -10,8 +10,8 @@ for a hot loop.
 For a recipe-style index of individual tasks, see the
 [how-to guide](guide.md). For exhaustive signatures, the value shape and
 the full syntax accepted, see the [reference](reference.md). For how the
-specification's grammar becomes the parser — and how the Go version
-differs from TypeScript — see [concepts](concepts.md).
+specification's grammar becomes the parser, and how the Go version
+differs from TypeScript, see [concepts](concepts.md).
 
 ## 1. Install
 
@@ -43,7 +43,7 @@ v, err := tabnassemver.Parse("1.2.3")
 
 The value is a `map[string]any` with the five keys the specification
 names, always all five: `major`, `minor` and `patch` are `float64`, and
-`prerelease` and `build` are `[]any` lists — empty here, because `1.2.3`
+`prerelease` and `build` are `[]any` lists, empty here, because `1.2.3`
 has neither. Assert the types to read them:
 
 ```go
@@ -75,7 +75,7 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 Look at the types inside the two lists. In `prerelease`, `alpha` is a
 `string` but `1` is a `float64`: a pre-release identifier made only of
 digits is *numeric* and comes back as a number; any other identifier is
-*alphanumeric* and stays a string. In `build`, `5` is the string `"5"` —
+*alphanumeric* and stays a string. In `build`, `5` is the string `"5"`:
 build identifiers are always strings. The distinction is the
 specification's own: it compares the two kinds of pre-release
 identifier differently (step 4), and build metadata takes no part in
@@ -87,8 +87,8 @@ large `major`):
 m := v.(map[string]any)
 for _, id := range m["prerelease"].([]any) {
 	switch id.(type) {
-	case string:   // alphanumeric identifier, e.g. "alpha"
-	case float64:  // numeric identifier, e.g. 1
+	case string:   // alphanumeric identifier, for example "alpha"
+	case float64:  // numeric identifier, for example 1
 	case *big.Int: // numeric identifier above MaxSafeInteger
 	}
 }
@@ -96,7 +96,7 @@ for _, id := range m["prerelease"].([]any) {
 
 Because build identifiers are strings, they keep their leading zeros:
 `1.0.0-alpha+001` gives `"build": []any{"001"}`. A numeric pre-release
-identifier may not have one at all — `1.2.3-01` is rejected, as you will
+identifier may not have one at all: `1.2.3-01` is rejected, as you will
 see in step 6.
 
 ## 4. Compare two versions
@@ -110,7 +110,7 @@ a, _ := tabnassemver.Parse("1.0.0-beta.2")
 b, _ := tabnassemver.Parse("1.0.0-beta.11")
 
 c, err := tabnassemver.Compare(a, b)
-// c:   -1 — beta.2 ranks below beta.11
+// c:   -1: beta.2 ranks below beta.11
 // err: nil
 ```
 
@@ -127,10 +127,10 @@ x, _ := tabnassemver.Parse("1.0.0+a")
 y, _ := tabnassemver.Parse("1.0.0+b")
 
 c, err = tabnassemver.Compare(x, y)
-// c: 0 — build metadata takes no part in precedence
+// c: 0: build metadata takes no part in precedence
 ```
 
-`Compare` returns an error if either argument is not a parsed value —
+`Compare` returns an error if either argument is not a parsed value:
 pass it the string `"1.0.0"` instead of the value and you get one.
 
 ## 5. Render a version with Format
@@ -163,7 +163,7 @@ argument is not a version value.
 Anything the specification does not allow is a parse error: a `v`
 prefix, a blank, a leading zero on a numeric part, an empty identifier,
 the empty string. Nothing is skipped or forgiven, so `Parse` returns
-`nil` and a non-nil error — never a panic:
+`nil` and a non-nil error, never a panic:
 
 ```go
 _, err := tabnassemver.Parse("v1.2.3")
@@ -187,22 +187,22 @@ _, err := tabnassemver.Parse("v1.2.3")
 var te *tabnas.TabnasError
 if errors.As(err, &te) {
 	te.Code // "unexpected"
-	te.Row  // 1 — line, 1-based
-	te.Col  // 1 — column, 1-based
-	te.Src  // "v" — the text the parser stopped at
+	te.Row  // 1: line, 1-based
+	te.Col  // 1: column, 1-based
+	te.Src  // "v": the text the parser stopped at
 	te.Hint // what a version has to look like, with a link to semver.org
 }
 ```
 
 `Code` is always `"unexpected"`: the plugin declares no error codes of
 its own, because the grammar is the sole judge of what a version is and
-every rejection is the same event — a character with no rule to match
+every rejection is the same event, a character with no rule to match
 it. `Hint` is where a reader learns the rules; `err.Error()` puts it all
 together as a multi-line message whose first line reads
 `[tabnas/unexpected]: unexpected character(s): v`, followed by the
 position, the source line and the hint (coloured with ANSI escapes
 unless the engine's colour option is turned off). For logs,
-`json.Marshal(err)` gives the structured diagnostic — `status`
+`json.Marshal(err)` gives the structured diagnostic: `status`
 (`"failure"`), `code`, `message`, `hint`, `row`, `col` and more.
 
 ## 7. Reuse one instance in a hot loop
@@ -220,7 +220,7 @@ j := tabnassemver.Make() // compiles the grammar once
 for _, s := range tags {
 	v, err := j.Parse(s)
 	if err != nil {
-		// not a version — see step 6
+		// not a version, see step 6
 		continue
 	}
 	// use v: the same map[string]any as tabnassemver.Parse returns
@@ -234,19 +234,19 @@ installed, which you can also spell out yourself:
 ```go
 j := tabnas.Make()
 if err := j.Use(tabnassemver.Semver); err != nil {
-	// the embedded grammar failed to compile — a broken build, not bad input
+	// the embedded grammar failed to compile: a broken build, not bad input
 }
 ```
 
 Installing the plugin twice on one instance is a no-op, and there are no
-options to pass — `tabnassemver.Defaults` is an empty map.
+options to pass: `tabnassemver.Defaults` is an empty map.
 
 ## Where to go next
 
-- [How-to guide](guide.md) — focused recipes for individual tasks.
-- [Reference](reference.md) — the public API, the value shape including
+- [How-to guide](guide.md). Focused recipes for individual tasks.
+- [Reference](reference.md). The public API, the value shape including
   `*big.Int`, the error fields, and the full syntax accepted.
-- [Concepts](concepts.md) — how the specification's grammar becomes the
+- [Concepts](concepts.md). How the specification's grammar becomes the
   parser, and how the Go version differs from TypeScript.
-- The root [README](../../README.md) and [AGENTS.md](../../AGENTS.md) —
-  the conformance claim and how the plugin is checked against it.
+- The root [README](../../README.md) and [AGENTS.md](../../AGENTS.md).
+  The conformance claim and how the plugin is checked against it.

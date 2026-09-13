@@ -1,7 +1,7 @@
 # Concepts
 
 Background on how the semver plugin is put together, and why. This is
-understanding-oriented reading — for steps see the
+understanding-oriented reading; for steps see the
 [tutorial](tutorial.md) and [how-to guide](guide.md), and for exact
 signatures, the value shape and the complete accepted syntax see the
 [reference](reference.md).
@@ -11,22 +11,22 @@ signatures, the value shape and the complete accepted syntax see the
 The plugin has no parser of its own. It sits at the top of a stack of
 four pieces:
 
-- the **Tabnas engine** (`@tabnas/parser`) — a configurable lexer under
+- the **Tabnas engine** (`@tabnas/parser`), a configurable lexer under
   a rule-and-alternative parser, driven by the grammar it is handed;
-- the **notation-neutral compiler** (`@tabnas/bnf`) — turns a grammar
+- the **notation-neutral compiler** (`@tabnas/bnf`), which turns a grammar
   into the engine's rule set without knowing which notation it was
   written in;
-- the **ABNF front end** (`@tabnas/abnf`) — reads RFC 5234 ABNF and
+- the **ABNF front end** (`@tabnas/abnf`), which reads RFC 5234 ABNF and
   drives that compiler; the plugin calls its `abnfConvert` and
   `attachActions`;
-- **this plugin** (`@tabnas/semver`) — the grammar text, one semantic
+- **this plugin** (`@tabnas/semver`), the grammar text, one semantic
   action, and a set of engine options.
 
 Install is where the work happens. `new Tabnas().use(Semver)` compiles
 the ABNF into a rule set (about 75 ms), attaches the action, sets the
 options on the compiled spec and hands the whole thing to the engine in
 one `tn.grammar(spec)` call, so grammar and options arrive together. A
-parse afterwards costs about 100 µs — which is why every document here
+parse afterwards costs about 100 µs, which is why every document here
 says to build one instance and reuse it. The instance keeps no state
 between parses, and `perf.test.ts` pins the reuse-versus-rebuild ratio.
 
@@ -47,22 +47,22 @@ build        = build-identifier *( "." build-identifier )
 
 Nothing in the plugin's code decides what a valid version is: the
 grammar accepts or rejects, and code runs only after it has accepted.
-The file is single-sourced — `embed-grammar.js` copies it verbatim into
-`src/semver.ts` and into the Go port at build time — and the same text
+The file is single-sourced (`embed-grammar.js` copies it verbatim into
+`src/semver.ts` and into the Go port at build time) and the same text
 is exported as `grammar` for tooling.
 
 ### Two rewrites, one language
 
 The engine picks an alternative from a bounded lookahead of a few
-tokens — a character each — never by reading to the end of an
+tokens (a character each) never by reading to the end of an
 identifier. Two of the specification's productions cannot be dispatched
 that way, so the file rewrites their *shape*; its comments show that
 the *language* is unchanged.
 
 **`pre-release-identifier`.** The specification says
 `<alphanumeric identifier> | <numeric identifier>`. Both can begin with
-a digit — `1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
-nothing at all — and telling them apart may need every character of the
+a digit (`1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
+nothing at all) and telling them apart may need every character of the
 identifier. The grammar factors on the first character instead:
 
 ```abnf
@@ -77,7 +77,7 @@ is valid only if a non-digit eventually arrives (`007a`); a positive
 digit starts a numeric identifier that becomes alphanumeric if a
 non-digit follows; anything else must be a non-digit. The union of the
 three is exactly alphanumeric ∪ numeric, and what it excludes is exactly
-a digit string with a leading zero — which the specification excludes
+a digit string with a leading zero, which the specification excludes
 too.
 
 **`build-identifier`.** The specification says
@@ -92,7 +92,7 @@ checks that against an independent judge on every run.
 ## What the compiler makes of it
 
 `abnfConvert(grammar, { start: 'semver', tag: 'semver' })` returns a
-spec holding the engine's rule set and the options it needs — for this
+spec holding the engine's rule set and the options it needs: for this
 grammar, 150 rules over seven tokens:
 
 | Grammar element | Compiled form |
@@ -100,16 +100,16 @@ grammar, 150 rules over seven tokens:
 | `"0"`, `"."`, `"-"`, `"+"` | fixed tokens `#0`, `#T`, `#T1`, `#T2` |
 | `%x31-39`, `%x41-5A`, `%x61-7A` | one regex class token each |
 | `*digit`, `[ … ]`, `1*identifier-character`, `( … )` | helper rules (`_gen5_star_digit`, `_gen13_opt__gen12_group`, …) |
-| an alternative in which a reference is followed by more — another reference or a terminal | a head rule (`<rule>$altN`, one per alternative, when the production has several) plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
+| an alternative in which a reference is followed by more, another reference or a terminal | a head rule (`<rule>$altN`, one per alternative, when the production has several) plus `$stepN` continuation rules (`valid-semver$alt0$step1`, …) |
 | the start rule | wrapped in `__start__`, the compiler's end-of-source rule |
 
 One character is one token, because the grammar names only single
 characters. Helper and chain rules flatten: in the `{rule, src, kids}`
 tree the compiler's own actions would build, their text rolls up into
-the enclosing named rule's `src` and they add no node — though the
+the enclosing named rule's `src` and they add no node, though the
 plugin installs those rules without those actions, and builds no tree
-at all (below). Every named production survives by name — the
-`debug-model` test asserts as much — but not every one of them takes
+at all (below). Every named production survives by name (the
+`debug-model` test asserts as much) but not every one of them takes
 part in a parse.
 
 ### Leading references are inlined
@@ -118,16 +118,16 @@ part in a parse.
 alternative that *begins* with a reference to another rule has that
 rule's alternatives inlined, recursively, which is what fills in the
 lookahead columns. Here that dissolves `version-core`, `major` and the
-`numeric-identifier` beneath them into `valid-semver` — the compiled
+`numeric-identifier` beneath them into `valid-semver`: the compiled
 `valid-semver` dispatches on `#0` or a positive digit at its first slot,
 and the alternative it picks consumes the major and its `.` itself, then
-pushes `minor` — and likewise the first `pre-release-identifier` into
+pushes `minor`, and likewise the first `pre-release-identifier` into
 `pre-release` and the first `build-identifier` into `build`. The parse
 never pushes those rules, so they never get a node and never fire a
 lifecycle hook, while `minor`, `patch` and every identifier after the
-first do. The one shape the substitution leaves alone is a pure alias —
+first do. The one shape the substitution leaves alone is a pure alias:
 a production that is nothing but a single reference, outside any cycle,
-such as `semver = valid-semver` or `minor = numeric-identifier` — which
+such as `semver = valid-semver` or `minor = numeric-identifier`, which
 is why `semver` survives to push `valid-semver`. So the parse tree is
 not the grammar tree, and which rules the compiler keeps is a property
 of the compiler, not of the specification; a value built by walking the
@@ -135,8 +135,8 @@ tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
-The plugin asks for no parse tree. `toRecognitionSpec` — `@tabnas/bnf`'s,
-re-exported by `@tabnas/abnf` — takes the converted spec and gives back
+The plugin asks for no parse tree. `toRecognitionSpec` (`@tabnas/bnf`'s,
+re-exported by `@tabnas/abnf`) takes the converted spec and gives back
 the same 150 rules over the same seven tokens with every AST-building
 action dropped: 1,567 of the 1,608 alternatives carry one on the way out
 of the compiler, and none do on the way into the engine. The rules, the
@@ -149,8 +149,8 @@ re-appends its child's `src` and re-copies its `kids`, so building the
 tree costs time and memory quadratic in an identifier's length:
 `1.0.0-` and 16,000 letters took about 8 s and 2.7 GB, and 32,000
 letters filled the V8 heap and killed the process outright, which no
-`try` can catch. Those are valid versions — the specification bounds
-neither the length of an identifier nor how many a version has — so the
+`try` can catch. Those are valid versions (the specification bounds
+neither the length of an identifier nor how many a version has) so the
 tree was a denial of service on strings the grammar accepts. With it
 gone the same 32,000 characters parse in about 0.2 s and some 60 MB, and
 cost grows with the length of the input rather than with its square:
@@ -161,7 +161,7 @@ What remains is one semantic action, on the compiler's end-of-source
 wrapper: the rule named by `spec.options.rule.start`, which for this
 grammar is `__start__`. It opens by pushing `semver` and closes on the
 end token `#ZZ` and nothing else, so when it closes the whole source has
-been accepted and `ctx.src()` — the text being parsed — IS the accepted
+been accepted and `ctx.src()` (the text being parsed) IS the accepted
 version, character for character; every default lexer is off (below), so
 nothing was skipped on the way in. The grammar has just proven the text
 well-formed, so the action splits it at the separators without checking
@@ -190,14 +190,14 @@ as soon as a version has been read, which is not the moment the input
 ends. For `1.2.3f` it closes on `1.2.3`, before the engine reaches the
 `f` it is going to reject, and `ctx.src()` there is the whole input, `f`
 and all: a value built at that point would describe a string the parse
-is about to throw out — and this one would not even get that far, since
+is about to throw out, and this one would not even get that far, since
 `BigInt('3f')` raises a bare `SyntaxError` through the engine. The
 wrapper cannot close early, having no alternative but the end of the
 source, and it is also the only place left that can carry the value: with
 no tree, nothing bubbles a child rule's node up to the result. The
-`semver` alias is still the entry production — the name the grammar, the
+`semver` alias is still the entry production (the name the grammar, the
 fixtures and the diagnostics all use, kept as a rule of its own by the
-pure-alias exemption above — but it is a name now, not a mechanism.
+pure-alias exemption above) but it is a name now, not a mechanism.
 
 ## The value decisions
 
@@ -250,7 +250,7 @@ tn.parse('1.0.0+21AF26D3----117B344092BD').build // => ['21AF26D3----117B344092B
 returning `-1`, `0` or `1`. It does not re-parse, and `0` means the two
 have the same precedence, not that they were the same string:
 
-1. `major`, `minor`, `patch` numerically — `<` and `>` compare a
+1. `major`, `minor`, `patch` numerically; `<` and `>` compare a
    `number` with a `bigint` correctly, so the representation switch is
    invisible here.
 2. A pre-release version ranks below its normal version (§11.3).
@@ -276,9 +276,9 @@ compare(tn.parse('1.0.0+a'), tn.parse('1.0.0+b')) // => 0
 compare(tn.parse('2.0.0'), tn.parse('10.0.0')) // => -1
 ```
 
-The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
+The specification's own chain (`1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
-1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
+1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1`) sits inside
 the shared fixture `test/precedence/order.tsv`, which both runtimes check
 pairwise in both directions, so transitivity is pinned too;
 `equal.tsv` holds pairs that differ at most in build metadata.
@@ -291,8 +291,8 @@ such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Three
 of those lexers would let the plugin accept something the specification
 rejects: with the space lexer on, `' 1.2.3'` and `'1.2.3 '` parse; with
 the line lexer, `'1.2.3\n'`; with the comment lexer, `'1.2.3#comment'`
-and `'1.2.3//comment'`. The other four — string, number, text and
-value — change no verdict on this grammar, because the engine tries a
+and `'1.2.3//comment'`. The other four (string, number, text and
+value) change no verdict on this grammar, because the engine tries a
 grammar's own class and fixed tokens before any default lexer, so a
 digit or a letter is the grammar's token first and `1.0.0-true.null`
 parses either way; they are off all the same, so that what is accepted
@@ -304,15 +304,15 @@ six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`, `#CA`); and
 sets `lex.empty: false`, so an empty source is a parse error rather than
 the engine's default answer of `undefined`. What the input can still
 produce is exactly the grammar's seven tokens. A character the grammar
-does not name — a blank, a tab, a newline, a quote, a `v` prefix — has
+does not name (a blank, a tab, a newline, a quote, a `v` prefix) has
 no matcher at all and is rejected as `unexpected` at its position, never
 skipped, never swallowed. The punctuation is unbound rather than merely
 unused so that a `{` in the input is not lexed as JSON's `#OB`: with the
 binding in place, `1.2.3{` would fail as a well-formed token the grammar
 did not want, expecting only end-of-source; unbound, it fails as an
 unknown character, and the diagnostic lists the grammar's own tokens as
-what was expected. (The engine's slots for the six still exist — the
-debug model lists them, without source text — but nothing in the input
+what was expected. (The engine's slots for the six still exist (the
+debug model lists them, without source text) but nothing in the input
 can produce them.) Turn the space, line or comment lexer back on and the
 plugin accepts strings the specification rejects; the options ride on
 the spec precisely so that they can only arrive together with the
@@ -336,7 +336,7 @@ tn.parse('1.0.0-true.null').prerelease // => ['true', 'null']
 
 Every rejection is the engine's base `unexpected` code, raised where the
 grammar has no alternative for the next character. The plugin declares
-no code of its own — `tabnas.plugin.json` lists an empty `errorCodes` —
+no code of its own (`tabnas.plugin.json` lists an empty `errorCodes`)
 and adds only a `hint` for `unexpected` that says what a version has to
 look like and links to the specification.
 
@@ -365,10 +365,10 @@ input.
 
 | Section | Strings | Accepted | Rejected |
 |---|---|---|---|
-| `exhaustive` — the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
-| `structured` — 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
-| `mutation` — valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
-| `random` — random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
+| `exhaustive`: the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
+| `structured`: 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
+| `mutation`: valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
+| `random`: random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
 
 The corpus is generated, not committed: both runtimes derive the same
 58,449 strings from the same alphabets, enumeration order and
@@ -385,7 +385,7 @@ examples, the version core, pre-release and build identifiers, and the
 141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
 `compare` chain and the equal pairs. Both runtimes auto-discover and run
 every file. A new parse case belongs there; the in-language suites keep
-only what a `.tsv` cannot express — `bigint` values, function results,
+only what a `.tsv` cannot express: `bigint` values, function results,
 error details.
 
 ## Relationship to the Go port
@@ -396,7 +396,7 @@ The plugin ships in two implementations built from the one grammar:
 `github.com/tabnas/abnf/go` at install, sets the same engine options,
 and runs the same shared fixtures and the same corpus with the same
 pinned census and hash. This TypeScript version is canonical: when the
-two disagree on parse behaviour, Go changes to match — unless Go has
+two disagree on parse behaviour, Go changes to match, unless Go has
 exposed a TypeScript defect, in which case TypeScript is fixed first,
 as happened with both toolchain fixes below.
 
@@ -421,7 +421,7 @@ tokens eager, so a class can be lexed at any lookahead slot
 `@tabnas/parser` lexer now tries the match tokens a rule expects at a
 slot before the eager ones it does not
 ([tabnas/parser#161](https://github.com/tabnas/parser/pull/161)). The
-plugin carries the first itself — after compiling, it sets `eager$` on
+plugin carries the first itself: after compiling, it sets `eager$` on
 every class token; the published emitter leaves the flag unset, so there
 the loop is what makes the difference, and it is a no-op once the
 emitter sets it. The second lives in the engine, and this grammar does

@@ -1,6 +1,6 @@
 # Concepts (Go)
 
-Background on how the Go semver plugin is put together, and why — and,
+Background on how the Go semver plugin is put together, and why, and,
 at the end, how it differs from the canonical TypeScript version. This
 is understanding-oriented reading; for steps see the
 [tutorial](tutorial.md) and [how-to guide](guide.md), and for exact
@@ -12,17 +12,17 @@ signatures, the value shape and the complete accepted syntax see the
 The module has no parser of its own. It sits at the top of a stack of
 four pieces:
 
-- the **tabnas engine** (`github.com/tabnas/parser/go`) — a
+- the **tabnas engine** (`github.com/tabnas/parser/go`), a
   configurable lexer under a rule-and-alternative parser, driven by
   whatever grammar it is handed;
-- the **notation-neutral compiler** (`github.com/tabnas/bnf/go`) — turns
+- the **notation-neutral compiler** (`github.com/tabnas/bnf/go`), which turns
   a grammar into the engine's rule set without knowing which notation it
   was written in;
-- the **ABNF front end** (`github.com/tabnas/abnf/go`) — reads RFC 5234
+- the **ABNF front end** (`github.com/tabnas/abnf/go`), which reads RFC 5234
   ABNF and drives that compiler; the plugin calls its `Abnf` and
   `AttachActions`;
 - **this module** (`github.com/tabnas/semver/go`, package
-  `tabnassemver`) — the grammar text, one semantic action, a set of
+  `tabnassemver`), the grammar text, one semantic action, a set of
   engine options, and the `Compare` and `Format` helpers.
 
 Install is where the work happens. `Semver(j, opts)` compiles the ABNF
@@ -33,8 +33,8 @@ afterwards costs about 100 µs, which is why every document here says to
 build one instance and reuse it: `Make()` returns a bare engine with the
 plugin installed, and the package-level `Parse` keeps one such instance
 for the life of the process. Installing the plugin a second time on the
-same instance is a no-op — a `semver-init` decoration on the engine
-records that the work is done — and `perf_test.go` checks that the
+same instance is a no-op (a `semver-init` decoration on the engine
+records that the work is done) and `perf_test.go` checks that the
 package-level `Parse` costs no more than a reused instance, which a
 rebuild-per-call regression would fail by a wide margin.
 
@@ -55,23 +55,23 @@ build        = build-identifier *( "." build-identifier )
 
 Nothing in the plugin's code decides what a valid version is: the
 grammar accepts or rejects, and code runs only after it has accepted.
-The file is single-sourced — the TypeScript build's `embed-grammar.js`
-copies it verbatim into `semver.go` (and into `ts/src/semver.ts`)
-between `BEGIN/END EMBEDDED` markers — and the same text is exported as
+The file is single-sourced (the TypeScript build's `embed-grammar.js`
+copies it verbatim into `semver.go`, and into `ts/src/semver.ts`,
+between `BEGIN/END EMBEDDED` markers) and the same text is exported as
 the `Grammar` constant for tooling.
 
 ### Two rewrites, one language
 
 The engine picks an alternative from a bounded lookahead of a few
-tokens — a character each, and at most four for this grammar — never by
+tokens (a character each, and at most four for this grammar) never by
 reading to the end of an identifier. Two of the specification's
 productions cannot be dispatched that way, so the file rewrites their
 *shape*; its comments show that the *language* is unchanged.
 
 **`pre-release-identifier`.** The specification says
 `<alphanumeric identifier> | <numeric identifier>`. Both can begin with
-a digit — `1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
-nothing at all — and telling them apart may need every character of the
+a digit (`1` is numeric, `1a` alphanumeric, `01a` alphanumeric, `01`
+nothing at all) and telling them apart may need every character of the
 identifier. The grammar factors on the first character instead:
 
 ```abnf
@@ -86,7 +86,7 @@ is valid only if a non-digit eventually arrives (`007a`); a positive
 digit starts a numeric identifier that becomes alphanumeric if a
 non-digit follows; anything else must be a non-digit. The union of the
 three is exactly alphanumeric ∪ numeric, and what it excludes is exactly
-a digit string with a leading zero — which the specification excludes
+a digit string with a leading zero, which the specification excludes
 too.
 
 **`build-identifier`.** The specification says
@@ -102,7 +102,7 @@ checks that against an independent judge on every run.
 
 `abnf.Abnf(Grammar, &abnf.AbnfConvertOptions{Start: "semver", Tag:
 "semver"})` returns a `*tabnas.GrammarSpec` holding the engine's rule
-set and the options it needs — for this grammar, 150 rules over seven
+set and the options it needs: for this grammar, 150 rules over seven
 tokens:
 
 | Grammar element | Compiled form |
@@ -116,7 +116,7 @@ tokens:
 One character is one token, because the grammar names only single
 characters. Helper and chain rules flatten: in the `{rule, src, kids}`
 tree the compiler's own actions would build, their text rolls up into
-the enclosing named rule's `src` and they add no node — though the
+the enclosing named rule's `src` and they add no node, though the
 plugin installs those rules without those actions, and builds no tree
 at all (below). Every named production survives by name, but not every
 one of them takes part in a parse.
@@ -126,9 +126,9 @@ one of them takes part in a parse.
 `github.com/tabnas/bnf/go` runs Paull's substitution over every
 production: an alternative that *begins* with a reference to another
 rule has that rule's alternatives inlined, recursively, which is what
-fills in the lookahead columns. The one exemption is a pure alias — a
+fills in the lookahead columns. The one exemption is a pure alias: a
 production whose only alternative is a single reference, such as
-`major = numeric-identifier` or `semver = valid-semver` — which has
+`major = numeric-identifier` or `semver = valid-semver`, which has
 nothing to dispatch between and is left to push its target. Here the
 substitution dissolves `version-core`, `major` and the
 `numeric-identifier` beneath them into `valid-semver`: the compiled
@@ -148,9 +148,9 @@ built by walking the tree would be coupled to that detail.
 
 The plugin asks for no parse tree. Once `abnf.Abnf` has returned the
 converted spec, `stripTreeActions` (in `semver.go`) drops every
-AST-building action the compiler emitted — every alternate action that
-resolves through `spec.Ref`, and in this grammar there is no other kind
-— leaving the same 150 rules over the same seven tokens, the same group
+AST-building action the compiler emitted (every alternate action that
+resolves through `spec.Ref`, and in this grammar there is no other kind)
+leaving the same 150 rules over the same seven tokens, the same group
 tags and the same accepted language, and no `{rule, src, kids}` node
 behind any rule. It is the typed-spec equivalent of
 `bnf.ToRecognitionSpec`, which this port cannot use directly: that
@@ -165,8 +165,8 @@ tree costs time and memory quadratic in an identifier's length:
 of the identifier roughly quadrupled both, so twice that length
 exhausted the machine and died with `fatal error: out of memory`, which
 no returned error can catch. Those
-are valid versions — the specification bounds neither the length of an
-identifier nor how many a version has — so the tree was a denial of
+are valid versions (the specification bounds neither the length of an
+identifier nor how many a version has) so the tree was a denial of
 service on strings the grammar accepts. With it gone, 32,000 characters
 parse in under 100 ms and about 50 MB, and cost grows with the length of
 the input rather than with its square; `perf_test.go` pins both.
@@ -175,7 +175,7 @@ What remains is one semantic action, on the compiler's end-of-source
 wrapper: the rule named by `spec.Options.Rule.Start`, which for this
 grammar is `__start__`. That rule opens by pushing `semver` and closes
 on the end token `#ZZ` and nothing else, so when it closes the whole
-source has been accepted and `ctx.Src` — the text being parsed — IS the
+source has been accepted and `ctx.Src` (the text being parsed) IS the
 accepted version, byte for byte; every default lexer is off (below), so
 nothing was skipped on the way in. The grammar has just proven the text
 well-formed, so the action splits it at the separators without checking
@@ -216,14 +216,14 @@ as soon as a version has been read, which is not the moment the input
 ends. For `1.2.3f` it closes on `1.2.3`, before the engine reaches the
 `f` it is going to reject, and `ctx.Src` there is the whole input, `f`
 and all: a value built at that point would describe a string the parse
-is about to refuse, and quietly — `integer("3f")` yields `0`, so the map
+is about to refuse, and silently: `integer("3f")` yields `0`, so the map
 would claim `1.2.0`. The wrapper cannot close early, having no
 alternative but the end of the source, and it is also the only place
 left that can carry the value: with no tree, nothing bubbles a child
 rule's node up to the result. The `semver` alias is still the entry
-production — the name the grammar, the fixtures and the diagnostics all
+production (the name the grammar, the fixtures and the diagnostics all
 use, kept as a rule of its own by the compiler's pure-alias exemption
-(above) — but it is a name now, not a mechanism.
+above) but it is a name now, not a mechanism.
 
 ## The value decisions
 
@@ -276,7 +276,7 @@ v.(map[string]any)["build"]      // []any{"001"}
 returning `-1`, `0` or `1`. It does not re-parse, and `0` means the two
 have the same precedence, not that they were the same string:
 
-1. `major`, `minor`, `patch` numerically — two `float64` values compare
+1. `major`, `minor`, `patch` numerically; two `float64` values compare
    directly, and once either side is a `*big.Int` both are compared as
    big integers, so the representation switch is invisible here.
 2. A pre-release version ranks below its normal version (§11.3).
@@ -304,9 +304,9 @@ lt("1.0.0+a", "1.0.0+b")                // 0
 lt("2.0.0", "10.0.0")                   // -1
 ```
 
-The specification's own chain — `1.0.0-alpha < 1.0.0-alpha.1 <
+The specification's own chain (`1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
-1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1` — sits inside
+1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1`) sits inside
 the shared fixture `test/precedence/order.tsv`, which both runtimes
 check pairwise in both directions, so transitivity is pinned too;
 `equal.tsv` holds the pairs that differ at most in build metadata.
@@ -317,7 +317,7 @@ The engine's defaults are JSON's: it skips whitespace, line ends and
 comments, lexes quoted strings, numbers, bare words and keyword values
 such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Each
 of those would let the plugin accept something the specification
-rejects — `" 1.2.3"`, `"1.2.3\n"`, `"\"1.2.3\""`, `"1.2.3#comment"` —
+rejects (`" 1.2.3"`, `"1.2.3\n"`, `"\"1.2.3\""`, `"1.2.3#comment"`)
 or mis-lex something it accepts, such as the pre-release identifier
 `true`.
 
@@ -328,8 +328,8 @@ unbinds the six punctuation tokens (`#OB`, `#CB`, `#OS`, `#CS`, `#CL`,
 `Lex.Empty: &off`, so an empty source is a parse error rather than the
 engine's default answer of `nil`. What remains, beyond the engine's own
 end-of-source and bad-character markers, is exactly the grammar's seven
-tokens. A character the grammar does not name — a blank, a tab, a
-newline, a quote, a `v` prefix — has no matcher at all and is rejected
+tokens. A character the grammar does not name (a blank, a tab, a
+newline, a quote, a `v` prefix) has no matcher at all and is rejected
 as `unexpected` at its position, never skipped, never swallowed. The
 punctuation is unbound rather than merely unused so that JSON's tokens
 do not show up in diagnostics and introspection as tokens of this
@@ -348,8 +348,8 @@ v.(map[string]any)["prerelease"]       // []any{"true", "null"}
 
 Every rejection is the engine's base `unexpected` code, raised where the
 grammar has no alternative for the next character. The plugin declares
-no code of its own — `tabnas.plugin.json` at the repository root lists
-an empty `errorCodes` — and adds only a `Hint` for `unexpected` that
+no code of its own (`tabnas.plugin.json` at the repository root lists
+an empty `errorCodes`) and adds only a `Hint` for `unexpected` that
 says what a version has to look like and links to the specification.
 
 That is a decision, not a gap. The grammar is the sole acceptor, and the
@@ -383,10 +383,10 @@ the expression's captures and `Format` must return the input.
 
 | Section | Strings | Accepted | Rejected |
 |---|---|---|---|
-| `exhaustive` — the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
-| `structured` — 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
-| `mutation` — valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
-| `random` — random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
+| `exhaustive`: the empty string and every string of length 1–5 over `019aZ-.+` | 37,449 | 27 | 37,422 |
+| `structured`: 5 version-core shapes × pre-release tails of length 0–3 over `01a.` × build tails of length 0–3 over `0a.` | 17,000 | 1,634 | 15,366 |
+| `mutation`: valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
+| `random`: random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
 
 The corpus is generated, not committed: both runtimes derive the same
 58,449 strings from the same alphabets, enumeration order and
@@ -401,11 +401,11 @@ Everything the corpus pins that is worth reading is also committed as a
 shared fixture: `test/spec/*.tsv` holds the specification's own
 examples, the version core, pre-release and build identifiers, and the
 141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
-`Compare` chain and the equal pairs. Both runtimes run every file —
+`Compare` chain and the equal pairs. Both runtimes run every file:
 `parity_test.go` auto-discovers `test/spec`, `precedence_test.go` loads
 the two precedence files by name. A new parse case
 belongs there; the in-language suites keep only what a `.tsv` cannot
-express — `*big.Int` values, function results, error details.
+express: `*big.Int` values, function results, error details.
 
 ## Differences from the TS version
 
@@ -413,7 +413,7 @@ The TypeScript implementation in `ts/src/semver.ts` is canonical; this
 module is a port built from the same `semver-grammar.abnf`, compiling
 it with the same options and running the same fixtures and the same
 corpus with the same pinned census and hash. When the two disagree on
-parse behaviour, Go changes to match — unless Go has exposed a
+parse behaviour, Go changes to match, unless Go has exposed a
 TypeScript defect, in which case TypeScript is fixed first, as happened
 with both toolchain fixes below. The differences do not change *which*
 strings parse or *what* parts they produce; they are about the host
@@ -423,7 +423,7 @@ language.
 
 | Area | TypeScript | Go |
 |---|---|---|
-| Convenience entry | none, by design — install the plugin yourself | `tabnassemver.Parse(src)` over one cached instance |
+| Convenience entry | none, by design; install the plugin yourself | `tabnassemver.Parse(src)` over one cached instance |
 | Build a parser | `new Tabnas().use(Semver)` | `tabnassemver.Make()`, or `j.Use(tabnassemver.Semver)` / `j.UseDefaults(tabnassemver.Semver, tabnassemver.Defaults)` |
 | Options | `Semver.defaults` is `{}` | `Defaults` is an empty `map[string]any` |
 | Parse failure | `tn.parse` **throws** | `Parse` returns `(nil, error)`; never panics on bad input |
@@ -465,7 +465,7 @@ runtime's value can rely on the same boundary.
 
 A Go engine instance is not safe for concurrent use, so the
 package-level `Parse` builds its instance once (`sync.Once`) and
-serialises callers through a mutex — the cost is far below rebuilding
+serialises callers through a mutex, and the cost is far below rebuilding
 the grammar per call. An instance from `Make` has no such guard: reuse
 it on one goroutine, or make one per goroutine. The TypeScript side has
 no cached instance to guard: it has no `Parse` convenience, by design.
@@ -478,8 +478,8 @@ the second value, with `Code`, `Row`, `Col`, `Pos`, `Src` (the offending
 text) and `Hint`. In both, `Code` is `"unexpected"` for every rejection,
 the empty string included, and the hint text is the same. Marshalling
 the Go error with `encoding/json` gives the same structured diagnostic
-as `JSON.stringify` on the TypeScript side — `status: "failure"`,
-`code`, `message`, `hint` and the position fields — so a log line or an
+as `JSON.stringify` on the TypeScript side (`status: "failure"`,
+`code`, `message`, `hint` and the position fields) so a log line or an
 API response looks alike whichever runtime produced it. Only the code
 is guaranteed to match at a lookahead failure; see above.
 
@@ -489,8 +489,8 @@ Both runtimes hang their one action on the compiler's `__start__`
 wrapper, and both install the grammar with the compiler's tree-building
 actions dropped. Only the way of dropping them differs. TypeScript calls
 the library's `toRecognitionSpec`, which hands back a spec it can go on
-to install; the Go `bnf.ToRecognitionSpec` returns a `map[string]any` —
-pure data, meant for serialising a grammar — which the engine cannot
+to install; the Go `bnf.ToRecognitionSpec` returns a `map[string]any` (pure
+data, meant for serialising a grammar) which the engine cannot
 take without a reload round trip, so this port does the same strip in
 place on the typed `*tabnas.GrammarSpec`, in `stripTreeActions`. It
 drops what the library drops: an alternate action that resolves through
@@ -505,7 +505,7 @@ both were already the Go behaviour. The Go emitter in
 eager, so a class can be lexed at any lookahead slot; and the Go engine
 has always tried the match tokens a rule expects at a slot before the
 eager ones it does not. Without the first, the TypeScript plugin
-rejected strings such as `1.0.0-01a` and `1.0.0-12a` — the `*digit`
+rejected strings such as `1.0.0-01a` and `1.0.0-12a`: the `*digit`
 helper peeks two digits, and the letter that ends the run lexed as a
 fatal bad token at the second slot. Both are fixed upstream
 ([tabnas/bnf#33](https://github.com/tabnas/bnf/pull/33),
