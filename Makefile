@@ -5,7 +5,8 @@
 # sibling checkouts linked into node_modules / a go.work (admin/scripts/link.sh).
 
 .PHONY: all build test clean build-ts build-go test-ts test-go \
-        clean-ts clean-go publish-ts publish-go set-version tags-go reset
+        clean-ts clean-go publish-ts publish-go set-version tags-go reset \
+        prose prose-counts
 
 all: build test
 
