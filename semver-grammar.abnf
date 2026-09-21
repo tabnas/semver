@@ -5,15 +5,16 @@
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
 ; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in both runtimes (ts/src/semver.ts and go/semver.go embed
-; it verbatim; "npm run embed" copies it there — never edit the copies).
+; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
+; edit the copies).
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is
 ; "version-core"), and — with two exceptions explained below — the
 ; specification's shape. The language accepted is EXACTLY the language of
 ; the specification's grammar: the two rewrites are equivalences, not
-; approximations, and the conformance suite in both runtimes checks the
+; approximations, and the conformance suite in all three runtimes checks the
 ; result against the regular expression semver.org publishes, on every
 ; string of a short alphabet up to length five and on thousands of
 ; mutated versions.
@@ -25,8 +26,9 @@
 ; character the grammar does not name.
 
 ; The entry point. A pure alias of the specification's root production;
-; it exists so the plugin has one unhyphenated rule name to hang its
-; value-building action on (see ts/src/semver.ts, "@semver:ac").
+; it is the one unhyphenated name the plugin's fixtures and diagnostics
+; use for the entry production. The value-building action hangs on the
+; compiler's end-of-source wrapper, not here (see ts/src/semver.ts).
 semver = valid-semver
 
 ; <valid semver> ::= <version core>
