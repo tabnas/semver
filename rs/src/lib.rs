@@ -30,7 +30,7 @@
 //! ```
 //!
 //! [`compare`] implements the specification's precedence rules (section
-//! 11) over two parsed values, and [`format`] renders a value back to its
+//! 11) over two parsed values, and [`format()`] renders a value back to its
 //! string.
 //!
 //! TypeScript is canonical: `ts/src/semver.ts` defines behaviour, the
@@ -227,7 +227,7 @@ pub use tabnas::TabnasError as SemverError;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SemverOptions;
 
-/// A value handed to [`compare`] or [`format`] that is not a version this
+/// A value handed to [`compare`] or [`format()`] that is not a version this
 /// crate can read: a missing or mistyped field, or a number no parse can
 /// produce.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -820,7 +820,7 @@ fn list<'v>(fields: &'v Fields, key: &str) -> Result<&'v [Value], VersionError> 
 /// `Number::toString` with radix 10.
 ///
 /// The canonical runtime renders a numeric component with `String(n)`, so
-/// [`format`] only equals TypeScript's output when this reproduces it.
+/// [`format()`] only equals TypeScript's output when this reproduces it.
 /// Rust's own shortest formatter does not: it breaks an exact decimal
 /// midpoint away from zero where the specification takes the even digit,
 /// and it never switches to exponent form at 1e21. Copied from
