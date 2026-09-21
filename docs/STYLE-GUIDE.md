@@ -41,8 +41,9 @@ drift from the other:
 
 The gated set is the reader-facing one: the language-neutral pages under
 `doc/`, the four Diátaxis kinds under `ts/doc/` and `go/doc/`, and the
-three package READMEs. The Rust-port series, the feasibility reports and
-the defect ledgers are working documents, and they are out.
+four package READMEs, `rs/README.md` among them. The feasibility reports
+and the defect ledgers are working documents, and they are out, as is
+`DIVERGENCE.md`.
 
 **Four checks live in the local gate rather than in Vale, and the reason
 is capability, not preference.**
@@ -65,7 +66,7 @@ is capability, not preference.**
 
 **A Google rule sitting below error level was tried at error first and
 found wrong for these pages.** `.vale.ini` records what each produced on
-a clean run over the gated set: 622 alerts across 11 files. Those
+a clean run over the gated set: 656 alerts across 12 files. Those
 numbers were written by hand once, and this sentence and the one in
 `.vale.ini` drifted apart from each other and from a run.
 `node ts/scripts/vale-counts.cjs` now reads both against a live Vale run
@@ -138,6 +139,10 @@ closed. The **root `README.md`** is exempt, because it is the
 repository's front page and its job includes pointing at `AGENTS.md`.
 `ts/README.md` and `go/README.md` are not exempt: npm and pkg.go.dev
 render them to somebody who has the package and not the repository.
+`rs/README.md` is not exempt either, and carries a second obligation
+beyond the prose rules: every `rust` fence in it is compiled and run as a
+doctest of the crate, so an example that stops being true fails the
+build.
 
 ## The voice
 

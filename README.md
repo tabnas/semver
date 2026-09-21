@@ -10,7 +10,7 @@
 A grammar plugin that teaches the [Tabnas](https://github.com/tabnas/parser)
 parser to read [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
 version strings (`1.2.3-alpha.1+build.5`) exactly as the specification
-defines them. Available for both TypeScript and Go, built from one ABNF
+defines them. Available for TypeScript, Go and Rust, built from one ABNF
 grammar.
 
 Docs, guides, the error reference and the playground: **[tabnas.dev](https://tabnas.dev)**.
@@ -24,6 +24,10 @@ npm install @tabnas/parser @tabnas/abnf @tabnas/semver
 # Go
 go get github.com/tabnas/semver/go@latest
 ```
+
+The Rust crate is unpublished, like the engine it needs. Clone
+`tabnas/parser`, `tabnas/abnf` and `tabnas/bnf` beside this repository
+and take it by path; [`rs/README.md`](rs/README.md) has the manifest.
 
 ## One tiny example
 
@@ -69,6 +73,14 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 // }
 ```
 
+**Rust.** `tabnas_semver::parse` keeps one instance and reuses it:
+
+```rust
+let value = tabnas_semver::parse("1.2.3-alpha.1+build.5")?;
+// {"major":1,"minor":2,"patch":3,
+//  "prerelease":["alpha",1],"build":["build","5"]}
+```
+
 ## The grammar is the parser
 
 The specification publishes its grammar in BNF. This plugin transcribes
@@ -91,13 +103,13 @@ build        = build-identifier *( "." build-identifier )
 
 `@tabnas/semver` accepts exactly the strings the semver.org grammar
 accepts, and produces the parts the specification names for each. The
-judge is the regular expression semver.org publishes for the purpose: both
-runtimes generate the same corpus of **58,449 strings**: every string of
+judge is the regular expression semver.org publishes for the purpose: all
+three runtimes generate the same corpus of **58,449 strings**: every string of
 length up to five over an eight-character alphabet, every short
 pre-release and build tail on five version-core shapes, thousands of
 mutated valid versions, and random noise. They check verdict, value and
-round-trip against it on every test run. The census is pinned in both
-runtimes:
+round-trip against it on every test run. The census is pinned in each of
+them:
 
 | Corpus | Strings | Accepted | Rejected |
 |---|---|---|---|
@@ -106,15 +118,20 @@ runtimes:
 | mutation (1–3 random edits of valid versions) | 3,000 | 838 | 2,162 |
 | random (length ≤ 12 over a wide alphabet) | 1,000 | 0 | 1,000 |
 
-Identical in both runtimes. Two representation decisions, both about
-values the specification leaves unbounded:
+Identical in all three runtimes. Two representation decisions, both
+about values the specification leaves unbounded:
 
 - an integer component above `Number.MAX_SAFE_INTEGER` (2^53 − 1) is a
-  `bigint` (TypeScript) / `*big.Int` (Go) rather than silently rounded;
+  `bigint` (TypeScript) / `*big.Int` (Go) / the exact decimal digits in a
+  string (Rust) rather than silently rounded;
 - a numeric pre-release identifier is a number and an alphanumeric one a
   string, because the specification compares the two kinds differently.
 
-See [`AGENTS.md`](AGENTS.md#conformance-claim) for the full details.
+The first of those is the one place the runtimes differ, because the
+engine's Rust value type has a single numeric variant and it is a double.
+Every digit survives in all three. [`DIVERGENCE.md`](DIVERGENCE.md)
+records it, measured, with the test that pins it. See
+[`AGENTS.md`](AGENTS.md#conformance-claim) for the full details.
 
 ## Documentation
 
@@ -128,8 +145,11 @@ framework: one file per quadrant, per language:
 | **Reference** (API + syntax) | [ts/doc/reference.md](ts/doc/reference.md) | [go/doc/reference.md](go/doc/reference.md) |
 | **Concepts** (explanation) | [ts/doc/concepts.md](ts/doc/concepts.md) | [go/doc/concepts.md](go/doc/concepts.md) |
 
+The Rust crate documents itself in [`rs/README.md`](rs/README.md), whose
+examples are compiled and run as doctests.
+
 Per-language hubs: [`ts/README.md`](ts/README.md),
-[`go/README.md`](go/README.md).
+[`go/README.md`](go/README.md), [`rs/README.md`](rs/README.md).
 
 ## License
 
