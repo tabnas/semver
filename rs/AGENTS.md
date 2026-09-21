@@ -17,6 +17,7 @@ result differs from the canonical one.
 | `tests/oracle_test.rs` | the generated 58,449-string corpus graded against the regular expression semver.org publishes, census and hash pinned |
 | `tests/semver_test.rs` | the in-language port of `go/semver_test.go` and `ts/test/semver.test.ts`: the value shape, the exact-integer boundary, `format`, `compare`, the error contract, the lexer switches |
 | `tests/divergence_test.rs` | the Rust half of every `../DIVERGENCE.md` row |
+| `tests/debug_model_test.rs` | the composition test, mirrored from `ts/test/debug-model.test.ts`: the grammar layered with `tabnas-debug`, and the structured model of the installed rule set |
 | `tests/perf_test.rs` | instance reuse beats rebuild-per-parse, a long identifier survives, and the installed grammar carries no tree builders |
 | `tests/embed_test.rs` | the embedded grammar equals `../semver-grammar.abnf`, in all three runtimes |
 | `tests/version_test.rs` | `Cargo.toml` == `VERSION` == `ts/package.json` == the TypeScript and Go constants |
@@ -24,13 +25,14 @@ result differs from the canonical one.
 | `README.md` | the crate front page, prose-gated; its `rust` fences are doctests of this crate |
 
 Crate `tabnas-semver`, library `tabnas_semver`. The engine (`tabnas`),
-the ABNF compiler (`tabnas-abnf`) and the fixture runner
-(`tabnas-support`, dev only) are **path dependencies on sibling
-checkouts** (`../../parser/rs`, `../../abnf/rs`, `../../support/rs`).
-`tabnas-bnf` has no entry, because `tabnas-abnf` depends on it, but
-`../../bnf/rs` must be on disk all the same: cargo reads the whole
-manifest graph before it compiles anything. None is published, so there
-is no registry version to fall back on.
+the ABNF compiler (`tabnas-abnf`), the fixture runner (`tabnas-support`,
+dev only) and the introspection plugin (`tabnas-debug`, dev only) are
+**path dependencies on sibling checkouts** (`../../parser/rs`,
+`../../abnf/rs`, `../../support/rs`, `../../debug/rs`). `tabnas-bnf` has
+no entry, because `tabnas-abnf` depends on it, but `../../bnf/rs` must be
+on disk all the same: cargo reads the whole manifest graph before it
+compiles anything. None is published, so there is no registry version to
+fall back on.
 
 ```bash
 cargo build --all-targets
@@ -182,6 +184,22 @@ it is that a long identifier is ACCEPTED and does not take the process
 down, plus the structural check that the installed grammar carries no
 tree builders, which is what made the canonical runtimes linear in the
 first place.
+
+## Composition with the debug plugin
+
+`tests/debug_model_test.rs` installs `tabnas-debug` beside the grammar
+and reads the installed rule set back through its structured model, the
+way `ts/test/debug-model.test.ts` does with `@tabnas/debug`. The
+canonical test resolves the plugin dynamically and skips when it is
+absent; here the plugin is a declared dev-dependency, so the test can
+never skip. It asserts the start rule is the compiler's end-of-source
+wrapper `__start__`, that `Semver` is in the plugin list, that every
+production of the grammar is present as a rule under its own name, the
+push edges `__start__` to `semver` to `valid-semver`, the grammar's four
+literal tokens and three character classes, that every default lexer
+reads back as off, that the live grammar renders to ABNF, and that the
+model serialises to JSON and round-trips. The Go suite has no
+counterpart, which the root `AGENTS.md` records.
 
 ## Fixtures
 

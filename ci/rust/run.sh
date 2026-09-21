@@ -11,8 +11,10 @@
 # to this repo before running. `tabnas-abnf` in turn depends on
 # https://github.com/tabnas/bnf, which gets no entry in rs/Cargo.toml but
 # has to be on disk all the same: cargo reads the whole manifest graph
-# before it compiles anything. The test suite needs a fourth sibling,
-# https://github.com/tabnas/support, the shared fixture runner.
+# before it compiles anything. The test suite needs two more siblings,
+# https://github.com/tabnas/support, the shared fixture runner, and
+# https://github.com/tabnas/debug, the introspection plugin the
+# composition test layers on the grammar.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -20,7 +22,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 # Every path dependency of rs/Cargo.toml, dev-dependencies and the
 # transitive bnf checkout included, checked before cargo gets a chance to
 # fail on one with a less useful message.
-for SIBLING in parser bnf abnf support; do
+for SIBLING in parser bnf abnf support debug; do
   if [[ ! -f "$ROOT/../$SIBLING/rs/Cargo.toml" ]]; then
     echo "no $SIBLING checkout at $ROOT/../$SIBLING/rs" >&2
     echo "clone https://github.com/tabnas/$SIBLING as a sibling of $(basename "$ROOT")" >&2
@@ -106,6 +108,7 @@ lock_without_sibling_versions() {
     /^name = "tabnas-bnf"$/      { sib = 1 }
     /^name = "tabnas-abnf"$/     { sib = 1 }
     /^name = "tabnas-support"$/  { sib = 1 }
+    /^name = "tabnas-debug"$/    { sib = 1 }
     sib && /^version = /         { print "version = \"<sibling>\""; next }
                                  { print }
   ' "$1"
@@ -127,9 +130,9 @@ trap 'if [ -f "$LOCK_BEFORE" ] && ! cmp -s "$LOCK_BEFORE" Cargo.lock; then cp "$
 #
 # NOT `--all` on fmt either. cargo defines it as "all packages, and also
 # their local path-based dependencies", and every sibling IS such a
-# dependency, so `--all` reaches into the parser, bnf, abnf and support
-# checkouts: an unformatted file over there fails this gate even when
-# every file here is clean.
+# dependency, so `--all` reaches into the parser, bnf, abnf, support and
+# debug checkouts: an unformatted file over there fails this gate even
+# when every file here is clean.
 "${CARGO[@]}" fmt --check
 "${CARGO[@]}" build --all-targets
 "${CARGO[@]}" test --all-targets

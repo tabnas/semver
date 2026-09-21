@@ -39,3 +39,8 @@ tabnas-support = { path = "../../support/rs", features = ["serde_json"] }
 # semver.org publishes. Tests only: the plugin itself compiles a grammar
 # and matches no patterns of its own.
 regex = "1.10"
+# The introspection plugin, for the composition test that mirrors
+# `ts/test/debug-model.test.ts`: the semver grammar layered with the
+# debug plugin, and the structured model of the installed rule set. A
+# fifth sibling checkout, tests only.
+tabnas-debug = { path = "../../debug/rs" }

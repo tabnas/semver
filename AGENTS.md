@@ -96,13 +96,13 @@ all of them.
 | [`semver-grammar.abnf`](semver-grammar.abnf) | **Single source of truth**: the specification's grammar in RFC 5234 ABNF, with the two equivalence rewrites the compiler needs explained inline. |
 | [`ts/`](ts/) | **Canonical** TypeScript implementation — the `@tabnas/semver` package. Plugin in `src/semver.ts`. Peer-depends on `@tabnas/abnf` and `@tabnas/parser`. No CLI. |
 | [`go/`](go/) | Go port — `github.com/tabnas/semver/go` (`const VERSION` in `go/semver.go`). Plugin `Semver` plus `Make` / `Parse` / `Compare` / `Format`. Requires the published `github.com/tabnas/abnf/go` (no `replace` directive). |
-| [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine, `tabnas-abnf` and (through it) `tabnas-bnf` as PATH dependencies on sibling checkouts; none is published. See [`rs/AGENTS.md`](rs/AGENTS.md). |
+| [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine, `tabnas-abnf` and (through it) `tabnas-bnf` as PATH dependencies on sibling checkouts, plus `tabnas-support` and `tabnas-debug` for the tests; none is published. See [`rs/AGENTS.md`](rs/AGENTS.md). |
 | [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. |
 | [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **All three** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
 | [`test/precedence/`](test/precedence/) | Shared `compare` fixtures: an ascending chain and equal pairs. |
 | [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`. |
 | [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`. |
-| [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, plus `embed_test.rs` (the embedded grammar against the file on disk, in all three runtimes) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
+| [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, `debug_model_test.rs` (composition with `tabnas-debug`), plus `embed_test.rs` (the embedded grammar against the file on disk, in all three runtimes) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
 | [`DIVERGENCE.md`](DIVERGENCE.md) | Where a port's result differs from the canonical TypeScript, measured. One entry. |
 | [`go/clib/`](go/clib/) | `libtabnassemver`, the parser as a C shared library with the fleet's uniform five-symbol ABI. |
 | [`ts/doc/`](ts/doc/), [`go/doc/`](go/doc/) | Per-runtime Diataxis docs: `tutorial.md`, `guide.md`, `reference.md`, `concepts.md`. The Rust crate documents itself in [`rs/README.md`](rs/README.md), which is in the gated prose set and whose `rust` fences are doctests. |
@@ -672,6 +672,14 @@ grammar is present as a rule by name, the push edges
 
 There is no Go equivalent of this test; the Go suite is self-contained.
 
+The Rust suite has one: `rs/tests/debug_model_test.rs` installs
+`tabnas-debug` (a path dev-dependency on `../../debug/rs`, so the test
+can never skip) beside the grammar and asserts the same facts through
+the structured model, `__start__` as the start rule, `Semver` in the
+plugin list, every production present as a rule, the push edges, the
+grammar's own tokens, the ABNF rendering and the JSON round trip, plus
+that every default lexer reads back as off.
+
 ## CI
 
 `.github/workflows/ci.yml` calls the org-standard reusable workflow
@@ -688,7 +696,7 @@ the npm release workflow checks and publishes `@tabnas/semver`.
 [`ci/workflows/rust.yml`](ci/workflows/rust.yml) is the Rust gate,
 STAGED rather than active: session credentials cannot write
 `.github/workflows/*` (admin `DECISIONS.md` ADR-8), so a maintainer
-promotes it. It clones the four sibling checkouts the crate resolves by
+promotes it. It clones the five sibling checkouts the crate resolves by
 path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and runs
 `ci/rust/run.sh`, which is the same script a contributor runs locally.
 [`ci/workflows/docs.yml`](ci/workflows/docs.yml) is staged the same way
