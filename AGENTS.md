@@ -18,7 +18,8 @@ into a value with the five parts the specification names:
 
 It is a plugin for the bare tabnas engine, built on
 [`@tabnas/abnf`](https://github.com/tabnas/abnf): install it with
-`new Tabnas().use(Semver)` (TS) or `tabnassemver.Make()` (Go). **The parser
+`new Tabnas().use(Semver)` (TS), `tabnassemver.Make()` (Go) or
+`tabnas_semver::make()` (Rust). **The parser
 is the specification's grammar.** [`semver-grammar.abnf`](semver-grammar.abnf)
 at the repo root is the semver.org BNF transcribed into RFC 5234 ABNF, and
 `@tabnas/abnf` compiles it into the engine's rule set when the plugin is
@@ -35,14 +36,15 @@ metadata ignored) and `format` (a value back to its string, exactly).
 accepts, and produces the parts the specification names for each.** The
 judge is not this repo: semver.org publishes a regular expression that
 recognises the language of its grammar (FAQ, "Is there a suggested regular
-expression to check a SemVer string?"), and the `oracle` suites in both
-runtimes — [`ts/test/oracle.test.ts`](ts/test/oracle.test.ts),
-[`go/oracle_test.go`](go/oracle_test.go) — grade every string of a
+expression to check a SemVer string?"), and the `oracle` suites in all
+three runtimes — [`ts/test/oracle.test.ts`](ts/test/oracle.test.ts),
+[`go/oracle_test.go`](go/oracle_test.go),
+[`rs/tests/oracle_test.rs`](rs/tests/oracle_test.rs) — grade every string of a
 generated corpus against it: the plugin's verdict must equal the
 expression's, and on every accepted string the plugin's value must match
 the expression's captures and `format` must give the input back.
 
-**Measured (both runtimes identical, census pinned in both):**
+**Measured (all three runtimes identical, census pinned in each):**
 
 | Corpus section | Strings | Accepted by both | Rejected by both |
 |---|---|---|---|
@@ -52,28 +54,34 @@ the expression's captures and `format` must give the input back.
 | `random` — random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | **0** | **1,000** |
 
 The corpus is **generated, not committed**, from the same alphabets, the
-same enumeration order and the same xorshift32 stream in both runtimes; a
-pinned FNV-1a hash over the whole corpus (`0x97bd27cb`) proves the two
+same enumeration order and the same xorshift32 stream in every runtime; a
+pinned FNV-1a hash over the whole corpus (`0x97bd27cb`) proves the three
 suites graded the same 58,449 strings, and the pinned per-section census
 means a section that starts accepting more or fewer strings goes red
 rather than inflating a pass rate. Changing the generator means re-pinning
-both constants in both runtimes in the same commit. The suites never skip.
+both constants in all three runtimes in the same commit. The suites never
+skip.
 
 Everything the corpus pins that is worth reading is **also** committed as a
 shared fixture in [`test/spec/`](test/spec/) — the specification's own
 examples, the version core, pre-release and build identifiers, and
 [`strict.tsv`](test/spec/strict.tsv), 141 rejections — plus the precedence
-fixtures in [`test/precedence/`](test/precedence/). Both runtimes run all
-of them.
+fixtures in [`test/precedence/`](test/precedence/). All three runtimes run
+all of them.
 
 ### Values, exactly
 
 - `major`, `minor`, `patch` and a numeric pre-release identifier are a
-  `number` (TS) / `float64` (Go) up to `Number.MAX_SAFE_INTEGER`
-  (2^53 − 1), and a **`bigint` / `*big.Int`** beyond it. The specification
-  places no upper bound on an integer, and a parser that silently rounded
-  `9007199254740993.0.0` would report the wrong version. Both runtimes
-  switch representation at the same value.
+  `number` (TS) / `float64` (Go) / `Value::Number` (Rust) up to
+  `Number.MAX_SAFE_INTEGER` (2^53 − 1), and a **`bigint` / `*big.Int` /
+  the exact decimal digits in a `Value::String`** beyond it. The
+  specification places no upper bound on an integer, and a parser that
+  silently rounded `9007199254740993.0.0` would report the wrong version.
+  All three runtimes switch representation at the same value, and all
+  three keep every digit; only the type differs, which is the one entry
+  in [`DIVERGENCE.md`](DIVERGENCE.md). The engine's Rust `Value` has one
+  numeric variant and it is an `f64`, so there is nowhere exact for the
+  digits to go as a number.
 - A pre-release identifier that is all digits is numeric (the grammar has
   already excluded a leading zero there); any other is a string. The
   specification compares the two kinds differently (§11.4), so the value
@@ -88,13 +96,17 @@ of them.
 | [`semver-grammar.abnf`](semver-grammar.abnf) | **Single source of truth**: the specification's grammar in RFC 5234 ABNF, with the two equivalence rewrites the compiler needs explained inline. |
 | [`ts/`](ts/) | **Canonical** TypeScript implementation — the `@tabnas/semver` package. Plugin in `src/semver.ts`. Peer-depends on `@tabnas/abnf` and `@tabnas/parser`. No CLI. |
 | [`go/`](go/) | Go port — `github.com/tabnas/semver/go` (`const VERSION` in `go/semver.go`). Plugin `Semver` plus `Make` / `Parse` / `Compare` / `Format`. Requires the published `github.com/tabnas/abnf/go` (no `replace` directive). |
-| [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **both** `src/semver.ts` and `go/semver.go` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` literal. Runs as the first half of `npm run build`. |
-| [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **Both** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
+| [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine, `tabnas-abnf` and (through it) `tabnas-bnf` as PATH dependencies on sibling checkouts; none is published. See [`rs/AGENTS.md`](rs/AGENTS.md). |
+| [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. |
+| [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **All three** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
 | [`test/precedence/`](test/precedence/) | Shared `compare` fixtures: an ascending chain and equal pairs. |
 | [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`. |
 | [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`. |
+| [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, plus `embed_test.rs` (the embedded grammar against the file on disk, in all three runtimes) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
+| [`DIVERGENCE.md`](DIVERGENCE.md) | Where a port's result differs from the canonical TypeScript, measured. One entry. |
 | [`go/clib/`](go/clib/) | `libtabnassemver`, the parser as a C shared library with the fleet's uniform five-symbol ABI. |
-| [`ts/doc/`](ts/doc/), [`go/doc/`](go/doc/) | Per-runtime Diataxis docs: `tutorial.md`, `guide.md`, `reference.md`, `concepts.md`. |
+| [`ts/doc/`](ts/doc/), [`go/doc/`](go/doc/) | Per-runtime Diataxis docs: `tutorial.md`, `guide.md`, `reference.md`, `concepts.md`. The Rust crate documents itself in [`rs/README.md`](rs/README.md), which is in the gated prose set and whose `rust` fences are doctests. |
+| [`ci/rust/run.sh`](ci/rust/run.sh) | The whole Rust gate in one script, so a local run and the workflow cannot drift apart. |
 | [`.github/workflows/`](.github/workflows/) | CI, releases, clib builds, status notifications and scorecard workflows (see [CI](#ci)). |
 
 ## The tabnas engine dependency
@@ -175,33 +187,48 @@ repo's parity fixtures
 
 ## Authority and alignment rules
 
-1. **TypeScript is canonical.** When TS and Go disagree on parse
-   behavior, TS wins; change Go to match — unless Go has exposed a TS
-   defect, in which case fix TS first (both toolchain fixes above were
-   exactly that: the Go port was right).
+1. **TypeScript is canonical.** When a port and TS disagree on parse
+   behavior, TS wins; change the port to match — unless the port has
+   exposed a TS defect, in which case fix TS first (both toolchain fixes
+   above were exactly that: the Go port was right). A port that CANNOT
+   match, because the host language has no way to say what JavaScript
+   says, goes in [`DIVERGENCE.md`](DIVERGENCE.md) with a measured table
+   and a test that pins it, never in prose alone.
 2. **The grammar is single-sourced, not duplicated.** `semver-grammar.abnf`
    is authored once; `embed-grammar.js` copies it verbatim into the
-   `grammarText` literal in both `src/semver.ts` and `go/semver.go`.
+   `grammarText` literal in `src/semver.ts` and `go/semver.go` and into
+   the `GRAMMAR_TEXT` raw string in `rs/src/lib.rs`.
    **Never hand-edit the text between the `--- BEGIN/END EMBEDDED
-   semver-grammar.abnf ---` markers** in either file — edit the `.abnf`
-   and re-run `npm run embed` (or `npm run build`, which embeds first).
-   The Go embed step rejects a grammar containing backticks.
-3. The two ports must produce the same value for the same input. The
-   parity contract is the shared grammar plus the shared `test/spec/*.tsv`
-   and `test/precedence/*.tsv` fixtures, which both runtimes auto-discover,
-   plus the oracle corpus with its pinned census and hash. Add a new parse
-   case to `test/spec`; the in-language suites keep only what a fixture
-   cannot express (bigint values, function results, error details).
+   semver-grammar.abnf ---` markers** in any of the three — edit the
+   `.abnf` and re-run `npm run embed` (or `npm run build`, which embeds
+   first). The Go embed step rejects a grammar containing backticks and
+   the Rust one rejects a grammar containing `"#`, which would close the
+   raw string early. The Rust step is skipped when `rs/src/lib.rs` is
+   absent, so the embedder still runs in a checkout predating the port.
+   `rs/tests/embed_test.rs` holds all three copies to the file on disk.
+3. The three runtimes must produce the same value for the same input.
+   The parity contract is the shared grammar plus the shared
+   `test/spec/*.tsv` and `test/precedence/*.tsv` fixtures, which all three
+   runtimes auto-discover, plus the oracle corpus with its pinned census
+   and hash. Add a new parse case to `test/spec`; the in-language suites
+   keep only what a fixture cannot express (bigint values, function
+   results, error details).
 4. The engine options the plugin sets (every default lexer off, the
    engine's JSON punctuation tokens unbound, `lex.empty` off, the
-   `unexpected` hint) exist in **both** runtimes and must stay in step —
+   `unexpected` hint) exist in **all three** runtimes and must stay in
+   step —
    they all ride on the compiled spec's `options` so the plugin applies
    them atomically alongside the grammar.
-5. `Defaults` (empty) and `VERSION` in `go/semver.go` mirror
-   `Semver.defaults` and the exported `VERSION` in `ts/src/semver.ts`. Both
-   `VERSION` constants MUST equal `ts/package.json` "version";
-   `go/version_test.go` and `ts/test/version.test.ts` read that file and
-   fail (never skip) on drift. The release orchestrator rewrites both.
+5. `Defaults` (empty) and `VERSION` in `go/semver.go`, and
+   `SemverOptions` and `pub const VERSION` in `rs/src/lib.rs`, mirror
+   `Semver.defaults` and the exported `VERSION` in `ts/src/semver.ts`.
+   All three `VERSION` constants MUST equal `ts/package.json` "version",
+   and `rs/Cargo.toml` `version` with them; `go/version_test.go`,
+   `ts/test/version.test.ts` and `rs/tests/version_test.rs` read that
+   file and fail (never skip) on drift. The release orchestrator
+   rewrites the first three, and `make set-version` does not yet touch
+   the Rust pair: the crate is unpublished, and its test fails the build
+   until somebody catches up.
 
 ## Repo-specific gotchas
 
@@ -288,7 +315,23 @@ go build ./...
 go test -v ./...       # values + shared fixtures + precedence + the oracle corpus + clib
 ```
 
-The repo-root [`Makefile`](Makefile) wraps both halves: `make build|test|clean`
+Rust (from `rs/`):
+
+```bash
+cargo test --all-targets   # values + shared fixtures + precedence + the oracle corpus
+cargo test --doc           # --all-targets does NOT include doctests, and README.md is one
+cargo clippy --all-targets --all-features -- -D warnings
+```
+
+There is nothing to install: the engine, `tabnas-abnf`, `tabnas-bnf` and
+the `tabnas-support` fixture runner are path dependencies on sibling
+checkouts, none of them published. `ci/rust/run.sh` from the repo root is
+the whole gate, formatting and the lockfile check included. A debug build
+is quadratic in the length of one identifier, for a reason `rs/AGENTS.md`
+measures and records; that is why the Rust suite's long-input sizes are
+smaller than Go's.
+
+The repo-root [`Makefile`](Makefile) wraps all three: `make build|test|clean`
 run the TS and Go sides, `make reset` rebuilds from clean, `make tags-go`
 lists `go/v*` tags, and `make publish-go V=x.y.z` injects `V` into the
 `const VERSION` in `go/semver.go`, commits, and tags `go/vX.Y.Z`.
@@ -307,23 +350,27 @@ Narrower, when iterating:
 ```bash
 (cd ts && npm test)                    # `pretest` builds first
 (cd go && go test ./...)               # values + fixtures + precedence + oracle + clib
+(cd rs && cargo test --all-targets && cargo test --doc)
 ```
 
 What "correct" means here, in order of authority:
 
-1. **The oracle corpus stays perfect in BOTH runtimes.** The regular
+1. **The oracle corpus stays perfect in ALL THREE runtimes.** The regular
    expression semver.org publishes decides every verdict and every value;
    the census and hash are pinned, so a corpus that shrinks or a section
    that drifts goes red instead of flattering the rate.
-2. **The shared fixtures pass in BOTH runtimes.** `test/spec/*.tsv` and
-   `test/precedence/*.tsv` are the parity contract; a row green in one
-   runtime and red in the other is a failure, not a discrepancy.
-3. **The three version constants agree** — `ts/package.json` `"version"`,
-   `VERSION` in `ts/src/semver.ts`, and `const VERSION` in `go/semver.go`.
+2. **The shared fixtures pass in ALL THREE runtimes.** `test/spec/*.tsv`
+   and `test/precedence/*.tsv` are the parity contract; a row green in one
+   runtime and red in another is a failure, not a discrepancy.
+3. **The version constants agree** — `ts/package.json` `"version"`,
+   `VERSION` in `ts/src/semver.ts`, `const VERSION` in `go/semver.go`,
+   and `version` in `rs/Cargo.toml` with `pub const VERSION` in
+   `rs/src/lib.rs`.
 4. **The embedded grammar matches its source.** If you changed
    `semver-grammar.abnf`, run `npm run embed` from `ts/` (or let `npm run
    build` re-embed) — never hand-edit between the `BEGIN/END EMBEDDED`
-   markers in either runtime.
+   markers in any runtime. `rs/tests/embed_test.rs` checks all three
+   copies against the file and against each other.
 
 ## Releasing
 
@@ -572,7 +619,7 @@ The machine-readable list is [`tabnas.plugin.json`](tabnas.plugin.json)
 (`errorCodes`) — empty, matching the catalogue-free state above. The
 fixtures still pin the contract: every row of
 [`test/spec/strict.tsv`](test/spec/strict.tsv) is `ERROR:unexpected`, a
-code compared exactly in both runtimes, never a bare `ERROR`. If this
+code compared exactly in all three runtimes, never a bare `ERROR`. If this
 package ever declares a code, add it there in the same change.
 
 ## Untrusted input
@@ -596,14 +643,19 @@ parse result must treat every part as hostile text.
   (including `bigint` / `*big.Int` components); escaping for SQL, HTML or a
   shell remains the caller's job.
 - **Cost is linear in the length of the input**, and the tests keep it
-  there (`perf.test.ts`, `perf_test.go`: a 32,000-character identifier
-  parses, and eight times the input costs under 24 times the time). That
-  was not free — see the tree gotcha above — and it is the property that
-  makes an unbounded identifier safe to accept from a header or a lock
-  file. A change that reintroduces per-node tree building reintroduces a
-  denial of service, which `SECURITY.md` puts in scope. Memory is linear
-  too, so a caller who must bound it can bound the input length; the
-  specification itself sets no limit and neither does this plugin.
+  there (`perf.test.ts`, `perf_test.go`, `rs/tests/perf_test.rs`: a long
+  identifier parses, and eight times the input costs under 24 times the
+  time). That was not free — see the tree gotcha above — and it is the
+  property that makes an unbounded identifier safe to accept from a
+  header or a lock file. A change that reintroduces per-node tree
+  building reintroduces a denial of service, which `SECURITY.md` puts in
+  scope. Memory is linear too, so a caller who must bound it can bound
+  the input length; the specification itself sets no limit and neither
+  does this plugin. The Rust crate measured that ladder to
+  1,000,000 characters of every shape in a release build, linear
+  throughout, with nothing aborting; the same crate is QUADRATIC under
+  `debug_assertions`, for an engine reason `rs/AGENTS.md` records, which
+  is why its long-input tests use smaller sizes than Go's.
 
 ## Composition test (@tabnas/debug)
 
@@ -633,13 +685,27 @@ builds and links the sibling `main` checkouts of the grammar toolchain.
 The clib release workflow publishes artifacts as `libtabnassemver`, and
 the npm release workflow checks and publishes `@tabnas/semver`.
 
+[`ci/workflows/rust.yml`](ci/workflows/rust.yml) is the Rust gate,
+STAGED rather than active: session credentials cannot write
+`.github/workflows/*` (admin `DECISIONS.md` ADR-8), so a maintainer
+promotes it. It clones the four sibling checkouts the crate resolves by
+path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and runs
+`ci/rust/run.sh`, which is the same script a contributor runs locally.
+[`ci/workflows/docs.yml`](ci/workflows/docs.yml) is staged the same way
+and now covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
+
 The `Code Quality` runs come from the repository's CodeQL default setup,
 configured in the code-security settings rather than in a workflow file,
 and analyse the two languages this tree contains. It listed Python while
 the ZON scaffold's corpus tooling was here; that job failed with "no
 source code seen" from the moment the tooling was removed until the
 setting was corrected. If a language is ever added or removed here, that
-setting has to follow — nothing in the tree can change it.
+setting has to follow — nothing in the tree can change it. The Rust
+port added a third language to the tree and the setting was NOT changed
+for it: CodeQL's default setup does not analyse Rust, so there is
+nothing to select. `cargo clippy --all-targets --all-features -D
+warnings`, inside `ci/rust/run.sh`, is the static analysis that arm
+would otherwise be.
 
 ## Agent tooling
 

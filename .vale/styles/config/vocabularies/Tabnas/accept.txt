@@ -11,9 +11,12 @@
 [Aa]ccessor
 [Bb]oolean
 [Bb]uiltins
+[Cc]lippy
 [Dd]eduplicate
 [Dd]eps
 [Dd]estructure
+[Dd]octest
+[Dd]octests
 [Gg]oroutine
 [Gg]oroutines
 [Ii]dentifier
@@ -21,6 +24,7 @@
 [Ii]nlines
 [Ll]exed
 [Ll]exes
+[Ll]ockfile
 [Ll]ookahead
 [Mm]atchers
 [Mm]utex
