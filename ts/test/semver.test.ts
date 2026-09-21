@@ -244,11 +244,11 @@ describe('semver', () => {
       assert.deepStrictEqual(at('v1.2.3'), { col: 1, src: 'v' })
       assert.deepStrictEqual(at('1.2.3 '), { col: 6, src: ' ' })
       assert.deepStrictEqual(at('1.2.3-a_b'), { col: 8, src: '_' })
-      // A leading zero (`01.2.3`) is rejected by both runtimes, but they
-      // point at different characters: TS at the `1` that cannot follow a
-      // complete `0`, Go at the `0` whose lookahead never matched. The
-      // code is the contract; a position at a lookahead failure is not
-      // (see the parser repo's DIVERGENCE.md), so it is not pinned here.
+      // A leading zero (`01.2.3`) is rejected by all three runtimes, and
+      // today all three point at the `0` (column 1) whose lookahead never
+      // matched; measured on 2026-09-21. The code is the contract; a
+      // position at a lookahead failure is not (see the parser repo's
+      // DIVERGENCE.md), so it is not pinned here.
     })
   })
 

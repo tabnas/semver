@@ -100,7 +100,7 @@ all of them.
 | [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. |
 | [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **All three** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
 | [`test/precedence/`](test/precedence/) | Shared `compare` fixtures: an ascending chain and equal pairs. |
-| [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`. |
+| [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`; plus `docs.test.js`, the fast half of the prose gate, run by `npm test` after them. |
 | [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`. |
 | [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, `debug_model_test.rs` (composition with `tabnas-debug`), plus `embed_test.rs` (the embedded grammar against the file on disk, in all three runtimes) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
 | [`DIVERGENCE.md`](DIVERGENCE.md) | Where a port's result differs from the canonical TypeScript, measured. One entry. |
@@ -170,7 +170,11 @@ construction either way** — `digit = "0" /
 positive-digit` with `positive-digit = %x31-39`, so no class contains a
 literal — which is why the port is safe here and why the whole oracle
 corpus passes with it. Do not copy the loop into a plugin whose classes
-and literals overlap. The Go module never needed either fix. The
+and literals overlap. The Go module never needed either fix, and neither
+does the Rust crate: the `tabnas-bnf` emitter marks every character
+class eager, so `rs/src/lib.rs` carries no copy of the loop, and
+`a_letter_after_digits_lexes` in `rs/tests/semver_test.rs` pins the
+observable half (`1.0.0-01a` and `1.0.0-12a` parse). The
 same parser change also lets `@<rule>-<phase>` lifecycle hooks bind on
 hyphenated rule names in TypeScript; this plugin does not depend on that
 (see the gotchas). The shapes are pinned for both runtimes in the abnf

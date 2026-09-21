@@ -188,6 +188,11 @@ publishes, hold all three runtimes to it.
 - **`compare` answers an `Ordering`** rather than the canonical
   `-1 | 0 | 1`, and returns it in a `Result` so a value that is not a
   parsed version is an error rather than a silent verdict.
+- **The value is a `tabnas::Value`, not a typed struct.** TypeScript
+  declares a `Version` type over its plain object; this crate answers the
+  engine's own value, an object with the five keys, as the Go port
+  answers a `map[string]any`. `compare` and `format` read that shape and
+  reject any other with a `VersionError`.
 
 ## Build and test
 
