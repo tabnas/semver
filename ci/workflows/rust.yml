@@ -75,13 +75,16 @@ jobs:
       # entry in rs/Cargo.toml, because it is `abnf` that depends on it,
       # but cargo reads the whole manifest graph before it compiles
       # anything, so the checkout has to be here. `support` carries the
-      # shared fixture runner and is a dev-dependency.
+      # shared fixture runner and `debug` the introspection plugin the
+      # composition test installs beside the grammar; both are
+      # dev-dependencies.
       - name: Clone the sibling crates
         run: |
           git clone --depth 1 https://github.com/tabnas/parser.git parser
           git clone --depth 1 https://github.com/tabnas/abnf.git abnf
           git clone --depth 1 https://github.com/tabnas/bnf.git bnf
           git clone --depth 1 https://github.com/tabnas/support.git support
+          git clone --depth 1 https://github.com/tabnas/debug.git debug
 
       # Pinned to the MSRV in rs/Cargo.toml rather than to `stable`, so
       # this fails on a change that needs a newer compiler instead of

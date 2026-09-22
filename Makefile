@@ -80,9 +80,9 @@ clean-go:
 
 # --- Rust (crate in rs/) ---
 #
-# The engine, the ABNF compiler and the fixture runner are path
-# dependencies on sibling checkouts (parser, abnf, bnf, support), so
-# there is nothing to fetch and nothing to link.
+# The engine, the ABNF compiler, the fixture runner and the debug plugin
+# are path dependencies on sibling checkouts (parser, abnf, bnf, support,
+# debug), so there is nothing to fetch and nothing to link.
 build-rs:
 	cd rs && cargo build --all-targets
 

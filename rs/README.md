@@ -159,7 +159,8 @@ dependents: `tabnas_semver` alone does not put `tabnas::Tabnas` or
 `tabnas::Value` in scope, and the examples above that name them would not
 resolve. Only `SemverError` is re-exported. The test suite additionally
 needs `https://github.com/tabnas/support` beside the repository, for the
-shared fixture runner.
+shared fixture runner, and `https://github.com/tabnas/debug`, for the
+composition test that layers the introspection plugin on the grammar.
 
 ## Differences from the canonical TypeScript
 
@@ -187,6 +188,11 @@ publishes, hold all three runtimes to it.
 - **`compare` answers an `Ordering`** rather than the canonical
   `-1 | 0 | 1`, and returns it in a `Result` so a value that is not a
   parsed version is an error rather than a silent verdict.
+- **The value is a `tabnas::Value`, not a typed struct.** TypeScript
+  declares a `Version` type over its plain object; this crate answers the
+  engine's own value, an object with the five keys, as the Go port
+  answers a `map[string]any`. `compare` and `format` read that shape and
+  reject any other with a `VersionError`.
 
 ## Build and test
 
@@ -207,8 +213,8 @@ generated corpus against the published regular expression with its census
 and hash pinned in all three runtimes. Beside them are the in-language
 tests: the value shape, the exact-integer boundary, `format`, `compare`
 over the specification's own examples, the error contract, instance
-reuse, the version sites, and the embedded grammar against the file on
-disk.
+reuse, the version sites, the embedded grammar against the file on disk,
+and the grammar layered with the `tabnas-debug` introspection plugin.
 
 Every example in this file is compiled and run as a doctest, so a stale
 one fails the build.

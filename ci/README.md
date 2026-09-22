@@ -32,9 +32,10 @@ This directory exists because session credentials cannot write
 
   Standalone rather than an arm of `ci.yml`, because `ci.yml` calls the
   org-shared polyglot workflow and that takes no Rust input: promoting
-  this needs no change in `tabnas/.github`. It clones the four sibling
+  this needs no change in `tabnas/.github`. It clones the five sibling
   checkouts the crate resolves by path (`parser`, `abnf`, `bnf`,
-  `support`) and pins the toolchain to the MSRV in `rs/Cargo.toml`. Its
-  `paths:` lists name everything the gate reads, the grammar file, the
-  embedder and the shared fixtures included. `make test-rs` runs the
-  inner loop locally; `ci/rust/run.sh` runs the whole thing.
+  `support`, `debug`) and pins the toolchain to the MSRV in
+  `rs/Cargo.toml`. Its `paths:` lists name everything the gate reads,
+  the grammar file, the embedder and the shared fixtures included.
+  `make test-rs` runs the inner loop locally; `ci/rust/run.sh` runs the
+  whole thing.

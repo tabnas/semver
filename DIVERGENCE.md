@@ -97,9 +97,10 @@ and are not recorded above, because none of them changes a result:
 - **The API shape.** `compare` answers a `std::cmp::Ordering` in a
   `Result` rather than `-1 | 0 | 1`; `parse` keeps one shared instance,
   which the canonical runtime leaves to the caller; `SemverOptions` is a
-  unit struct where TypeScript has `Record<string, never>`. These are
-  the same behaviour in the host language's own terms, and
-  `rs/README.md` lists them.
+  unit struct where TypeScript has `Record<string, never>`; the value is
+  the engine's `tabnas::Value` rather than a typed `Version` struct, as
+  the Go port's is a `map[string]any`. These are the same behaviour in
+  the host language's own terms, and `rs/README.md` lists them.
 - **An error's row and column at a lookahead failure.** All three
   runtimes reject the same strings with the same `unexpected` code, and
   the three columns agree on every case the suites check

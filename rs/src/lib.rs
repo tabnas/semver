@@ -30,7 +30,7 @@
 //! ```
 //!
 //! [`compare`] implements the specification's precedence rules (section
-//! 11) over two parsed values, and [`format`] renders a value back to its
+//! 11) over two parsed values, and [`format()`] renders a value back to its
 //! string.
 //!
 //! TypeScript is canonical: `ts/src/semver.ts` defines behaviour, the
@@ -88,15 +88,16 @@ const GRAMMAR_TEXT: &str = r#"
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
 ; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in both runtimes (ts/src/semver.ts and go/semver.go embed
-; it verbatim; "npm run embed" copies it there — never edit the copies).
+; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
+; edit the copies).
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is
 ; "version-core"), and — with two exceptions explained below — the
 ; specification's shape. The language accepted is EXACTLY the language of
 ; the specification's grammar: the two rewrites are equivalences, not
-; approximations, and the conformance suite in both runtimes checks the
+; approximations, and the conformance suite in all three runtimes checks the
 ; result against the regular expression semver.org publishes, on every
 ; string of a short alphabet up to length five and on thousands of
 ; mutated versions.
@@ -108,8 +109,9 @@ const GRAMMAR_TEXT: &str = r#"
 ; character the grammar does not name.
 
 ; The entry point. A pure alias of the specification's root production;
-; it exists so the plugin has one unhyphenated rule name to hang its
-; value-building action on (see ts/src/semver.ts, "@semver:ac").
+; it is the one unhyphenated name the plugin's fixtures and diagnostics
+; use for the entry production. The value-building action hangs on the
+; compiler's end-of-source wrapper, not here (see ts/src/semver.ts).
 semver = valid-semver
 
 ; <valid semver> ::= <version core>
@@ -225,7 +227,7 @@ pub use tabnas::TabnasError as SemverError;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SemverOptions;
 
-/// A value handed to [`compare`] or [`format`] that is not a version this
+/// A value handed to [`compare`] or [`format()`] that is not a version this
 /// crate can read: a missing or mistyped field, or a number no parse can
 /// produce.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -818,7 +820,7 @@ fn list<'v>(fields: &'v Fields, key: &str) -> Result<&'v [Value], VersionError> 
 /// `Number::toString` with radix 10.
 ///
 /// The canonical runtime renders a numeric component with `String(n)`, so
-/// [`format`] only equals TypeScript's output when this reproduces it.
+/// [`format()`] only equals TypeScript's output when this reproduces it.
 /// Rust's own shortest formatter does not: it breaks an exact decimal
 /// midpoint away from zero where the specification takes the even digit,
 /// and it never switches to exponent form at 1e21. Copied from
