@@ -1,6 +1,6 @@
 {
   "name": "@tabnas/semver",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Semantic Versioning 2.0.0 (semver.org) parsing for the Tabnas parser, defined as an ABNF grammar.",
   "main": "dist/semver.js",
   "type": "commonjs",
@@ -29,7 +29,7 @@
     "test-watch": "node --test --watch dist-test/semver.test.js",
     "embed": "node embed-grammar.js",
     "watch": "tsc --build src test -w",
-    "build": "node embed-grammar.js && tsc --build src test",
+    "build": "node embed-grammar.js && tsc --build src && tsc --build test",
     "clean": "rm -rf node_modules dist dist-test yarn.lock package-lock.json",
     "reset": "npm run clean && npm i && npm run build && npm test",
     "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: ts/v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag ts/v$REPO_VERSION && git push origin ts/v$REPO_VERSION;",
@@ -55,8 +55,8 @@
     "@tabnas/debug": "*",
     "@tabnas/parser": "*",
     "@tabnas/support": "*",
-    "@types/node": "25.6.0",
-    "typescript": "6.0.3"
+    "@types/node": "26.6.2",
+    "typescript": "7.0.2"
   },
   "engines": {
     "node": ">=24"
