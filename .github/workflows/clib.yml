@@ -1,4 +1,4 @@
-# tabnas-clib-template: v1
+# tabnas-clib-template: v2
 #
 # PR gate for the clib: build the shared library on the portable lane's
 # host and run the contract tests under -race. Artifact production for
