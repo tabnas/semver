@@ -2,11 +2,12 @@
 
 How the tabnas documentation is written. Adapted from
 [aontu](https://github.com/aontu-lang/aontu)'s `docs/STYLE-GUIDE.md`,
-with tabnas's terminology, two-runtime file layout, and executable-example
+with tabnas's terminology, per-runtime file layout, and executable-example
 conventions. This guide is normative for every page `ts/scripts/gated-docs.cjs`
-lists, which is the reader-facing set: 11 pages in this repository. It exists so that a page written next year sounds like a
-page written this year, and so that a reviewer can point at a rule instead
-of arguing taste.
+lists, which is the reader-facing set: 12 pages in this repository. It
+exists so that a page written next year sounds like a page written this
+year, and so that a reviewer can point at a rule instead of arguing
+taste.
 
 Three sources feed it, in a fixed priority order. The same order is
 encoded in `.vale.ini`, and every rule switched off there names the
@@ -39,11 +40,12 @@ drift from the other:
 | `ts/test/docs.test.js` | `make test` | the banned list again, the no-em-dash rule, the first-person rules, the exclamation ration, and no emoji |
 | `ts/scripts/vale-counts.cjs` | `make prose`, `.github/workflows/docs.yml` | that every count in `.vale.ini`, and the total below, are what Vale reports |
 
-The gated set is the reader-facing one: the language-neutral pages under
-`doc/`, the four Diátaxis kinds under `ts/doc/` and `go/doc/`, and the
-four package READMEs, `rs/README.md` among them. The feasibility reports
-and the defect ledgers are working documents, and they are out, as is
-`DIVERGENCE.md`.
+The gated set is the reader-facing one: the four Diátaxis kinds under
+`ts/doc/` and `go/doc/`, and the four package READMEs, `rs/README.md`
+among them. This repository has no language-neutral `doc/` directory.
+`DIVERGENCE.md` and the agent guides (`AGENTS.md`, `CLAUDE.md` and the
+nested `AGENTS.md` files) are working documents, and they are out, as is
+`go/clib/README.md`, whose text is stamped from an admin template.
 
 **Four checks live in the local gate rather than in Vale, and the reason
 is capability, not preference.**
@@ -100,11 +102,14 @@ tutorial, used in a guide, specified in the reference, argued in the
 explanation) but the normative statement lives in the reference and
 everything else links to it.
 
-**The two runtimes carry the same set.** A page present under `ts/doc/`
-and missing under `go/doc/` is a gap, and `gated-docs.cjs` filters to
-what is on disk so the gap shows up as a missing gate rather than a
-crash. A page only one port has is a deliberate exception and says so in
-its own opening lines.
+**The two documented runtimes carry the same set.** This repository has
+three runtimes, but only TypeScript and Go have a `doc/` directory; the
+Rust port is documented by `rs/README.md`, which is gated with the other
+READMEs. A page present under `ts/doc/` and missing under `go/doc/` is a
+gap. `gated-docs.cjs` THROWS on a declared page that is not on disk, so a
+rename or a deletion fails the build rather than quietly shrinking what
+the gate covers. A page only one port has is a deliberate exception and
+says so in its own opening lines.
 
 ## The published set cites nothing internal
 
@@ -338,8 +343,8 @@ than being left to look executable.
   literally thrown).
 - **plugin**: a unit that adds rules, options or matchers. Not
   "extension", not "middleware".
-- **port**: the Go, Rust and Python implementations are ports of the
-  canonical TypeScript one. Not "version", which means a release.
+- **port**: the Go and Rust implementations are ports of the canonical
+  TypeScript one. Not "version", which means a release.
 - Spell error codes as they render: `[tabnas/unexpected]`.
 
 ## Per-kind templates
