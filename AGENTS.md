@@ -764,8 +764,8 @@ STAGED rather than active: session credentials cannot write
 promotes it. It clones the five sibling checkouts the crate resolves by
 path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and runs
 `ci/rust/run.sh`, which is the same script a contributor runs locally.
-[`ci/workflows/docs.yml`](ci/workflows/docs.yml) is staged the same way
-and now covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
+The prose gate, [`.github/workflows/docs.yml`](.github/workflows/docs.yml),
+is live and covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
 
 The `Code Quality` runs come from the repository's CodeQL default setup,
 configured in the code-security settings rather than in a workflow file,

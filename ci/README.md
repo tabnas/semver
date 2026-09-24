@@ -11,20 +11,6 @@ This directory exists because session credentials cannot write
 
 ## Pending
 
-- **`workflows/docs.yml`** — the prose gate: Vale over the reader-facing
-  pages at the levels set in `.vale.ini`, on the file list
-  `ts/scripts/gated-docs.cjs` produces. See `docs/STYLE-GUIDE.md`.
-
-  It needs no sibling checkouts and no secrets, and pins its own Vale
-  version. Errors fail the job; warnings go to the run summary as a
-  report. `make prose` runs the identical check locally, and the test
-  suite already runs the other half of the gate
-  (`ts/test/docs.test.js`), so promoting this adds the spelling and
-  Google-convention arm rather than the whole gate.
-
-  Its `paths:` lists now include `rs/README.md`, which joined the gated
-  set with the Rust port.
-
 - **`workflows/rust.yml`** — the Rust gate for `rs/`: formatting, build,
   tests, doctests and clippy with `-D warnings`, plus the lockfile check,
   all of them inside `ci/rust/run.sh` so this file and a contributor's
