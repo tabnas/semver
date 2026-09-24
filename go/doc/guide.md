@@ -329,9 +329,9 @@ fmt.Print(tabnassemver.Grammar)
 ```
 
 Use it to feed grammar tooling or to show a user exactly what is
-accepted. `VERSION` (`"0.1.0"`) is the module's own version, itself a
-valid version string, so `tabnassemver.Parse(tabnassemver.VERSION)`
-succeeds.
+accepted. `VERSION` is the module's own version, equal to the `version`
+field of `ts/package.json` and itself a valid version string, so
+`tabnassemver.Parse(tabnassemver.VERSION)` succeeds.
 
 The TypeScript recipes for the same tasks are in
 [`../../ts/doc/guide.md`](../../ts/doc/guide.md).

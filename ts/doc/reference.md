@@ -34,7 +34,7 @@ build time: `@tabnas/abnf` must be resolvable at runtime.
 | `compare` | `(a: Version, b: Version) => -1 \| 0 \| 1` | Precedence per specification section 11. See [compare](#compare). |
 | `format` | `(v: Version) => string` | A value back to its version string. See [format](#format). |
 | `grammar` | `string` | The ABNF text the plugin compiles. See [grammar](#grammar). |
-| `VERSION` | `string` | This package's version, always equal to `package.json` "version" (currently `'0.1.0'`). |
+| `VERSION` | `string` | This package's version, always equal to the `version` field of `ts/package.json`. |
 | `Version` | type | The parse result (see [The value](#the-value)). |
 | `PrereleaseIdentifier` | type | `string \| SemverNumber`, one pre-release identifier. |
 | `SemverNumber` | type | `number \| bigint`, one integer component. |
