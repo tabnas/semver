@@ -286,7 +286,7 @@ pairwise in both directions, so transitivity is pinned too;
 ## Why every default lexer is off
 
 The engine's defaults are JSON's: it skips whitespace, line ends and
-comments, lexes quoted strings, numbers, bare words and keyword values
+comments, lexes quoted strings, numbers, bare words, and keyword values
 such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Three
 of those lexers would let the plugin accept something the specification
 rejects: with the space lexer on, `' 1.2.3'` and `'1.2.3 '` parse; with

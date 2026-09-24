@@ -245,7 +245,7 @@ alternative for what comes next, usually at the offending character,
 though a lookahead failure can be reported earlier (`1.02.3` fails at
 column 1). The plugin declares no codes of its own (see
 [AGENTS.md](../../AGENTS.md), "Error codes"), so `Code` never says *why*
-a string was rejected. The position, the offending text and the hint
+a string was rejected. The position, the offending text, and the hint
 do:
 
 ```go
@@ -271,7 +271,7 @@ raw, _ := json.Marshal(err) // the engine's structured diagnostic
 `err.Error()` is a multi-line message that reads
 `[tabnas/unexpected]: unexpected character(s): _`, points at the column
 in the source line, and repeats the hint; the JSON form is the one for a
-log, an API response or a tool. There `status` is always `"failure"`,
+log, an API response, or a tool. There `status` is always `"failure"`,
 `code` is the contract, `hint` is the same text as `te.Hint`; `row` and
 `col` are 1-based, `pos` 0-based, `len` the length of the offending
 text. The empty string fails at row 1, column 1 with an empty `Src`;

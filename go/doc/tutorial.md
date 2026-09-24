@@ -1,7 +1,7 @@
 # Tutorial: your first semver parse (Go)
 
 This walks you from nothing to a working parse, then through precedence,
-rendering and one error. Follow it in order; each step builds on the
+rendering, and one error. Follow it in order; each step builds on the
 last. When you finish you will have installed the module, parsed a
 version with pre-release and build parts, compared two versions,
 rendered one back to text, handled a rejection, and set up an instance

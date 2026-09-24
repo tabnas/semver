@@ -92,7 +92,7 @@ instance and reuse it (see [Performance](#performance)).
 
 Parses one version string and returns a `Version`. The whole of `src`
 must be a single version: there is no leading or trailing whitespace, no
-line end, no prefix and nothing after the version. A rejected string,
+line end, no prefix, and nothing after the version. A rejected string,
 the empty string included, throws (see [Errors](#errors)).
 
 ## Options
@@ -411,7 +411,7 @@ next character. Fields on the thrown object:
 | `code` | `string` | Always `'unexpected'`. |
 | `lineNumber` | `number` | Line of the offending character, 1-based. |
 | `columnNumber` | `number` | Column of the offending character, 1-based. |
-| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
+| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token, and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
 
 The engine also sets `fileName` (`undefined` here), `details` and `meta`
 (both `{}` here) and a `txts` accessor on the object; the JSON form

@@ -221,7 +221,7 @@ would claim `1.2.0`. The wrapper cannot close early, having no
 alternative but the end of the source, and it is also the only place
 left that can carry the value: with no tree, nothing bubbles a child
 rule's node up to the result. The `semver` alias is still the entry
-production (the name the grammar, the fixtures and the diagnostics all
+production (the name the grammar, the fixtures, and the diagnostics all
 use, kept as a rule of its own by the compiler's pure-alias exemption
 above) but it is a name now, not a mechanism.
 
@@ -314,7 +314,7 @@ check pairwise in both directions, so transitivity is pinned too;
 ## Why every default lexer is off
 
 The engine's defaults are JSON's: it skips whitespace, line ends and
-comments, lexes quoted strings, numbers, bare words and keyword values
+comments, lexes quoted strings, numbers, bare words, and keyword values
 such as `true` and `null`, and binds `{ } [ ] : ,` as punctuation. Each
 of those would let the plugin accept something the specification
 rejects (`" 1.2.3"`, `"1.2.3\n"`, `"\"1.2.3\""`, `"1.2.3#comment"`)
