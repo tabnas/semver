@@ -34,7 +34,7 @@ build time: `@tabnas/abnf` must be resolvable at runtime.
 | `compare` | `(a: Version, b: Version) => -1 \| 0 \| 1` | Precedence per specification section 11. See [compare](#compare). |
 | `format` | `(v: Version) => string` | A value back to its version string. See [format](#format). |
 | `grammar` | `string` | The ABNF text the plugin compiles. See [grammar](#grammar). |
-| `VERSION` | `string` | This package's version, always equal to `package.json` "version" (currently `'0.1.0'`). |
+| `VERSION` | `string` | This package's version, always equal to the `version` field of `ts/package.json`. |
 | `Version` | type | The parse result (see [The value](#the-value)). |
 | `PrereleaseIdentifier` | type | `string \| SemverNumber`, one pre-release identifier. |
 | `SemverNumber` | type | `number \| bigint`, one integer component. |
@@ -92,7 +92,7 @@ instance and reuse it (see [Performance](#performance)).
 
 Parses one version string and returns a `Version`. The whole of `src`
 must be a single version: there is no leading or trailing whitespace, no
-line end, no prefix and nothing after the version. A rejected string,
+line end, no prefix, and nothing after the version. A rejected string,
 the empty string included, throws (see [Errors](#errors)).
 
 ## Options
@@ -411,7 +411,7 @@ next character. Fields on the thrown object:
 | `code` | `string` | Always `'unexpected'`. |
 | `lineNumber` | `number` | Line of the offending character, 1-based. |
 | `columnNumber` | `number` | Column of the offending character, 1-based. |
-| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
+| `message` | `string` | Multi-line: a header `[tabnas/unexpected]: unexpected character(s): <char>`, a source extract with a caret, the hint, then an `--internal: ...--` trailer naming the rule, token, and plugins. ANSI-coloured by default; the engine option `color: { active: false }` (constructor or `engine.options`) turns colour off. |
 
 The engine also sets `fileName` (`undefined` here), `details` and `meta`
 (both `{}` here) and a `txts` accessor on the object; the JSON form

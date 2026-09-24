@@ -169,7 +169,7 @@ The grammar as ABNF text, the same string the plugin compiles, which is
 included. Exported for tooling; it is the constant the plugin itself
 compiles (`Grammar = grammarText`), not a second copy.
 
-### `const VERSION = "0.1.0"`
+### `const VERSION`
 
 The module's version. It equals `ts/package.json` `"version"` and the
 TypeScript `VERSION`; `version_test.go` reads `ts/package.json` and fails

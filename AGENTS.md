@@ -42,7 +42,7 @@ sweep, an install or a fetch, a release, a wait on CI, a benchmark, a
 script or loop you write, and anything sent to the background.
 
 - **Minimal is enough.** One line with the step and a count, such as
-  `conformance: 412/1500 (27%)`, meets it. When no total is known, print
+  `conformance: 412 of 1500 (27%)`, meets it. When no total is known, print
   what is known (the step, the current item, the elapsed time) and say the
   percentage is unknown rather than inventing one.
 - **Build it into what you write.** A script or loop prints a line per
@@ -758,14 +758,13 @@ builds and links the sibling `main` checkouts of the grammar toolchain.
 The clib release workflow publishes artifacts as `libtabnassemver`, and
 the npm release workflow checks and publishes `@tabnas/semver`.
 
-[`ci/workflows/rust.yml`](ci/workflows/rust.yml) is the Rust gate,
-STAGED rather than active: session credentials cannot write
-`.github/workflows/*` (admin `DECISIONS.md` ADR-8), so a maintainer
-promotes it. It clones the five sibling checkouts the crate resolves by
-path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and runs
-`ci/rust/run.sh`, which is the same script a contributor runs locally.
-[`ci/workflows/docs.yml`](ci/workflows/docs.yml) is staged the same way
-and now covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
+[`.github/workflows/rust.yml`](.github/workflows/rust.yml) is the Rust
+gate, and it is live. It clones the five sibling checkouts the crate
+resolves by path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and
+runs `ci/rust/run.sh`, which is the same script a contributor runs
+locally.
+The prose gate, [`.github/workflows/docs.yml`](.github/workflows/docs.yml),
+is live and covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
 
 The `Code Quality` runs come from the repository's CodeQL default setup,
 configured in the code-security settings rather than in a workflow file,
