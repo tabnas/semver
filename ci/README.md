@@ -1,18 +1,34 @@
 # ci/
 
-Staging area for GitHub Actions workflow changes.
+The scripts the CI workflows run. `rust/run.sh` is the Rust gate:
+`.github/workflows/rust.yml` runs it, and so can you.
 
-This directory exists because session credentials cannot write
-`.github/workflows/*` — see admin `DECISIONS.md` ADR-8. To change CI:
+To change CI, edit `.github/workflows/` in a reviewed pull request.
+Session credentials push workflow files (admin `DECISIONS.md` ADR-8, as
+amended 2026-09-24), so staging a workflow here first for a maintainer
+to promote is optional. Sessions still cannot push tags, so a maintainer
+pushes any tag that a tag-triggered workflow needs.
 
-1. Put the intended workflow file in `workflows/`.
-2. A maintainer promotes it with the admin `rollout/apply-ci-folders.sh`
-   script.
+Some of the workflows are maintained in admin as well, and an edit made
+only in this repository does not last:
+
+- A workflow with a template in admin `rollout/workflows/`, named
+  `semver__<file>`, changes in that template too, in a pull request to
+  admin. Today that is `release.yml` and `crates-release.yml`. Admin
+  `scripts/verify.sh` reports a deployed copy that differs from its
+  template, and the next `rollout/apply-workflows.sh --apply` writes the
+  template back over it.
+- `clib.yml` and `clib-release.yml` are stamped from admin
+  `tasks/clib-template/`, together with `go/clib/`. Change the template
+  and restamp with admin `tasks/adopt-clib.sh`, which writes both
+  workflows straight into `.github/workflows/`. The new stamp lands in
+  this repository's own reviewed pull request. Admin `scripts/verify.sh`
+  reports a stamped file that differs from its template.
 
 ## Promoted
 
-Nothing is pending. The Rust gate staged here has been promoted and now
-lives in `.github/workflows/rust.yml`:
+The Rust gate staged here has been promoted and now lives in
+`.github/workflows/rust.yml`:
 
 - **`rust.yml`** — the Rust gate for `rs/`: formatting, build,
   tests, doctests and clippy with `-D warnings`, plus the lockfile check,
