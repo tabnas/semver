@@ -758,12 +758,11 @@ builds and links the sibling `main` checkouts of the grammar toolchain.
 The clib release workflow publishes artifacts as `libtabnassemver`, and
 the npm release workflow checks and publishes `@tabnas/semver`.
 
-[`ci/workflows/rust.yml`](ci/workflows/rust.yml) is the Rust gate,
-STAGED rather than active: session credentials cannot write
-`.github/workflows/*` (admin `DECISIONS.md` ADR-8), so a maintainer
-promotes it. It clones the five sibling checkouts the crate resolves by
-path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and runs
-`ci/rust/run.sh`, which is the same script a contributor runs locally.
+[`.github/workflows/rust.yml`](.github/workflows/rust.yml) is the Rust
+gate, and it is live. It clones the five sibling checkouts the crate
+resolves by path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and
+runs `ci/rust/run.sh`, which is the same script a contributor runs
+locally.
 The prose gate, [`.github/workflows/docs.yml`](.github/workflows/docs.yml),
 is live and covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
 

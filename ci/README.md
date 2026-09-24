@@ -9,19 +9,22 @@ This directory exists because session credentials cannot write
 2. A maintainer promotes it with the admin `rollout/apply-ci-folders.sh`
    script.
 
-## Pending
+## Promoted
 
-- **`workflows/rust.yml`** — the Rust gate for `rs/`: formatting, build,
+Nothing is pending. The Rust gate staged here has been promoted and now
+lives in `.github/workflows/rust.yml`:
+
+- **`rust.yml`** — the Rust gate for `rs/`: formatting, build,
   tests, doctests and clippy with `-D warnings`, plus the lockfile check,
   all of them inside `ci/rust/run.sh` so this file and a contributor's
   local run cannot say different things.
 
   Standalone rather than an arm of `ci.yml`, because `ci.yml` calls the
-  org-shared polyglot workflow and that takes no Rust input: promoting
-  this needs no change in `tabnas/.github`. It clones the five sibling
-  checkouts the crate resolves by path (`parser`, `abnf`, `bnf`,
-  `support`, `debug`) and pins the toolchain to the MSRV in
-  `rs/Cargo.toml`. Its `paths:` lists name everything the gate reads,
-  the grammar file, the embedder and the shared fixtures included.
+  org-shared polyglot workflow and that takes no Rust input: it needs no
+  change in `tabnas/.github`. It clones the five sibling checkouts the
+  crate resolves by path (`parser`, `abnf`, `bnf`, `support`, `debug`)
+  and pins the toolchain to the MSRV in `rs/Cargo.toml`. Its `paths:`
+  lists name everything the gate reads, the grammar file, the embedder
+  and the shared fixtures included.
   `make test-rs` runs the inner loop locally; `ci/rust/run.sh` runs the
   whole thing.
