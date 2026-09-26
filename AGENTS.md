@@ -174,10 +174,14 @@ proxy; there are no `file:` paths and no `replace` directives.
 - TypeScript: `@tabnas/abnf` and `@tabnas/parser` are `peerDependencies`
   in `ts/package.json`, each mirrored as a `"*"` devDependency.
   `@tabnas/debug` and `@tabnas/support` are dev-only. The ranges are
-  floors, not the fleet's bare `">=0"`: `@tabnas/abnf` `>=0.4.8` and
-  `@tabnas/parser` `>=0.9.1` are the first releases on which the whole
-  toolchain agrees about a character class beside a literal (see below),
-  and abnf 0.4.8 in turn floors `@tabnas/bnf` at 0.1.11.
+  floors, not the fleet's bare `">=0"`, at the versions `go/go.mod`
+  requires: today `@tabnas/abnf` `>=0.4.16` and `@tabnas/parser`
+  `>=0.12.4`. They move with each release, as they do in abnf, ebnf and
+  gbnf. The first floors, `>=0.4.8` and `>=0.9.1`, were the first releases
+  on which the whole toolchain agrees about a character class beside a
+  literal (see below), and abnf 0.4.8 in turn floors `@tabnas/bnf` at
+  0.1.11. Today's floors are later than both, so every release they admit
+  carries both fixes.
 - Go: `go/go.mod` `require`s `github.com/tabnas/abnf/go`,
   `github.com/tabnas/parser/go` and `github.com/tabnas/support/go` at the
   versions pinned there.
@@ -454,9 +458,18 @@ accepts the publish. Pushing a tag by hand is the orchestrator's path
 
 The steps, in order:
 
-1. Bump all **three** version sites together — `ts/package.json`, `VERSION`
-   in `ts/src/semver.ts` and `const VERSION` in `go/semver.go`. Drift is
-   caught by `ts/test/version.test.ts` and `go/version_test.go`.
+1. Bump all **five** version sites together — `ts/package.json`, `VERSION`
+   in `ts/src/semver.ts`, `const VERSION` in `go/semver.go`, and the Rust
+   pair, `version` in `rs/Cargo.toml` and `pub const VERSION` in
+   `rs/src/lib.rs`. Drift is caught by `ts/test/version.test.ts`,
+   `go/version_test.go` and `rs/tests/version_test.rs`. Bumping
+   `rs/Cargo.toml` also moves `rs/Cargo.lock`'s entry for this crate: run
+   `cargo update --workspace` in `rs/` and commit the lock with the bump.
+
+   When the release also moves a `require` in `go/go.mod`, move the
+   matching `peerDependencies` floor in `ts/package.json` to the same
+   version. The floors track what the Go module requires, as in abnf,
+   ebnf and gbnf.
 2. Verify against the **published** dependencies rather than your checkout.
    The release runner installs fresh from the registry; a working tree
    usually does not, so reproduce that before believing anything:
