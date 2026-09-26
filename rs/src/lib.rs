@@ -62,7 +62,7 @@ mod readme_examples {}
 /// release orchestrator rewrites both, and `tests/version_test.rs` fails
 /// the build if they drift. Mirrors `VERSION` in `ts/src/semver.ts` and
 /// `const VERSION` in `go/semver.go`.
-pub const VERSION: &str = "0.0.3";
+pub const VERSION: &str = "0.0.4";
 
 /// The plugin's name on an instance, and the key its option bag hangs
 /// under.
