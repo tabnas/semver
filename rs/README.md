@@ -148,7 +148,7 @@ next to this repository and point at them:
 ```toml
 [dependencies]
 tabnas-semver = { path = "../semver/rs" }
-tabnas = { path = "../parser/rs" }
+tabnas = { package = "tabnas-parser", path = "../parser/rs" }
 ```
 
 `tabnas-bnf` needs no entry of its own, because it is `tabnas-abnf` that
