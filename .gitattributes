@@ -4,3 +4,9 @@
 # Preserve line endings in test fixtures - some tests depend on specific line endings
 test/fixtures/*.csv binary
 test/fixtures/*.json binary
+
+# The compiled grammar (semver-grammar.json at the root and its copy in
+# every port) is generated, and its tests compare it byte for byte with
+# the compiler's output: keep LF on every platform, and fold it in review
+# diffs as generated.
+semver-grammar.json text eol=lf linguist-generated=true
