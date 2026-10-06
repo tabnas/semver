@@ -15,14 +15,14 @@ syntax, see the [reference](reference.md). For how it all works, see
 
 `@tabnas/semver` is a grammar plugin: it has no parser of its own. It
 runs on the Tabnas engine, and its grammar (the Semantic Versioning
-2.0.0 grammar, written as ABNF) is compiled by `@tabnas/abnf` when the
-plugin is installed. Install all three:
+2.0.0 grammar, written as ABNF) arrives compiled: `@tabnas/abnf` turned
+it into the engine's rule set at build time. Install the two packages:
 
 ```bash
-npm install @tabnas/parser @tabnas/abnf @tabnas/semver
+npm install @tabnas/parser @tabnas/semver
 ```
 
-`@tabnas/parser` and `@tabnas/abnf` are peer dependencies.
+`@tabnas/parser` is a peer dependency.
 
 ## 2. Build a parser
 
@@ -38,10 +38,9 @@ const tn = new Tabnas().use(Semver)
 tn.parse('1.2.3') // => { major: 1, minor: 2, patch: 3, prerelease: [], build: [] }
 ```
 
-Installing the plugin compiles the grammar into the engine's rule set,
-which takes on the order of a hundred milliseconds; a parse then takes
-on the order of a hundred microseconds, a thousand times less. Build
-the instance once and keep it rather than creating one per parse. The
+Installing the plugin loads the compiled grammar into the engine's rule
+set, which takes a few milliseconds; a parse then takes about a tenth
+of a millisecond, dozens of times less. Build the instance once and keep it rather than creating one per parse. The
 plugin has no options, so `use(Semver)` is the whole configuration.
 
 ## 3. Read the five parts

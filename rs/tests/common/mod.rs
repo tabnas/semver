@@ -50,8 +50,8 @@ pub fn to_failure(error: tabnas::TabnasError) -> Failure {
 }
 
 /// Parse one version through the crate's shared default instance, as the
-/// Go and TypeScript fixture runners do. Compiling the grammar dominates
-/// a parse by orders of magnitude, and the plugin keeps no per-parse
+/// Go and TypeScript fixture runners do. Installing the grammar dominates
+/// a parse by more than an order of magnitude, and the plugin keeps no per-parse
 /// state on the instance, so a fixture row cannot reach the next one.
 pub fn parse_shared(input: &str) -> Result<Value, Failure> {
     tabnas_semver::parse(input)

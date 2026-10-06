@@ -12,11 +12,13 @@
 //!
 //! The parser IS the specification's grammar. `semver-grammar.abnf` at
 //! the repository root (embedded below) is the semver.org BNF transcribed
-//! into RFC 5234 ABNF, and [`tabnas_abnf`] compiles it into the engine's
-//! rule set when the plugin is installed. Nothing here decides what a
-//! valid version is: the grammar accepts or rejects, and the only code
-//! that runs during a parse is the one action that turns the accepted
-//! text into the value.
+//! into RFC 5234 ABNF. [`@tabnas/abnf`](https://github.com/tabnas/abnf)
+//! compiles it into the engine's rule set at build time, and the plugin
+//! installs that compiled rule set (`semver-grammar.json`, embedded)
+//! without any compiler: the crate depends on the engine alone. Nothing
+//! here decides what a valid version is: the grammar accepts or rejects,
+//! and the only code that runs during a parse is the one action that
+//! turns the accepted text into the value.
 //!
 //! ```
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,14 +44,10 @@
 
 use std::cmp::Ordering;
 use std::fmt;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use serde_json::{json, Map as JsonMap, Value as Json};
 use tabnas::{Context, GrammarError, Plugin, PluginError, Rule, Tabnas, Value};
-use tabnas_abnf::{
-    abnf_convert, attach_actions, to_recognition_spec, AbnfConvertOptions, ActionFn, GrammarSpec,
-    RefAction,
-};
 
 /// The README's Rust examples run as doctests, so a stale one fails the
 /// gate rather than misleading the reader. Its `toml` and `bash` fences
@@ -87,10 +85,12 @@ const GRAMMAR_TEXT: &str = r#"
 ;   (section "Backus–Naur Form Grammar for Valid SemVer Versions")
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
-; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
-; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
-; edit the copies).
+; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at BUILD time:
+; "npm run gen-grammar" (from ts/) writes semver-grammar.json beside this
+; file and a copy of it into each runtime, which installs that compiled
+; grammar and loads no compiler. ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs also embed this text verbatim, as the exported grammar
+; ("npm run embed" copies it there). Never edit any copy.
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is
@@ -214,8 +214,16 @@ letter = %x41-5A / %x61-7A
 
 // --- END EMBEDDED semver-grammar.abnf ---
 
-/// The grammar as ABNF text: the same text the plugin compiles.
+/// The grammar as ABNF text: the source the compiled grammar the plugin
+/// installs is generated from.
 pub const GRAMMAR: &str = GRAMMAR_TEXT;
+
+/// The compiled grammar: `semver-grammar.json`, the engine's serialized
+/// rule set, generated from `semver-grammar.abnf` at the repository root
+/// by `npm run gen-grammar` (`ts/gen-grammar.js`) and copied into this
+/// crate byte for byte. Never edit it; `tests/embed_test.rs` holds it to
+/// the generated file.
+const GRAMMAR_SPEC: &str = include_str!("../semver-grammar.json");
 
 /// A parse failure. Every rejection is the engine's base `unexpected`
 /// code: this plugin declares no codes of its own (see `AGENTS.md`).
@@ -267,90 +275,74 @@ See https://semver.org/spec/v2.0.0.html";
 /// ```
 pub fn semver(parser: &mut Tabnas) -> Result<(), GrammarError> {
     // Guard against re-invocation on the same instance: the grammar is
-    // stateless, but compiling and installing it twice is wasted work.
+    // stateless, but loading and installing it twice is wasted work.
     // The Go port keeps a `semver-init` decoration for this; the engine's
     // own rule list answers the same question without inventing a key.
     if parser.rule_names().iter().any(|name| name == "semver") {
         return Ok(());
     }
 
-    // Compile the specification's grammar into an engine rule set. The
-    // start rule is `semver`, a pure alias of the specification's
+    // The specification's grammar, compiled. [`GRAMMAR_SPEC`] is the
+    // engine's serialized rule set, which `npm run gen-grammar` compiles
+    // from `semver-grammar.abnf` with `@tabnas/abnf` at BUILD time and
+    // copies into this crate, so installing the plugin runs no compiler.
+    // It is the same file the TypeScript and Go ports install, and
+    // byte for byte what `tabnas-abnf`'s `to_recognition_spec` produced
+    // here at every install before it.
+    //
+    // The start rule is `semver`, a pure alias of the specification's
     // `valid-semver`: the name has no hyphen in it, which used to be what
     // let a lifecycle hook bind on the published TypeScript engine. The
     // hook has since moved to the compiler's end-of-source wrapper
     // (below), so nothing depends on that any more, but the alias stays:
     // it is the name this plugin's grammar, fixtures and diagnostics all
     // use for the entry production.
-    let convert = AbnfConvertOptions {
-        start: Some("semver".to_string()),
-        tag: Some("semver".to_string()),
-        ..AbnfConvertOptions::default()
-    };
-    let mut spec = abnf_convert(GRAMMAR_TEXT, Some(&convert))
-        .map_err(|error| GrammarError(format!("semver: grammar failed to compile: {error}")))?;
-
-    // The single semantic action, on the compiler's end-of-source wrapper
-    // -- the rule `abnf_convert` names in `options.rule.start`, normally
-    // `__start__` (it numbers the name only if the grammar declares one
-    // itself, which this one does not). That rule closes on `#ZZ` and
-    // nothing else, so it closes exactly when the whole source has been
-    // accepted: the context's source is then the accepted text, character
-    // for character, because with every default lexer off (below) nothing
-    // was skipped on the way in.
     //
-    // The wrapper, not `semver`: `semver` closes as soon as a VERSION has
-    // been read, which for `1.2.3f` happens before the engine discovers
-    // the trailing `f`. Building a value there would report a wrong
-    // version on a string the grammar is about to reject.
-    let start_rule = start_rule_name(&spec);
-    let build_value: ActionFn = Arc::new(|rule: &mut Rule, ctx: &mut Context| {
-        *rule.node.borrow_mut() = from_text(&ctx.source);
-        Ok(())
-    });
-    attach_actions(
-        &mut spec,
-        vec![(format!("@{start_rule}:ac"), vec![build_value])],
-    )
-    .map_err(|error| GrammarError(format!("semver: {error}")))?;
-
-    // `attach_actions` on a rule phase records the hook under the engine's
-    // own `@<rule>-<phase>` name, which the engine auto-installs when that
-    // rule is loaded. Register that one ref and no other: `GrammarSpec::bind`
-    // would also register the compiler's tree-building closures, and the
-    // recognition document built below references none of them.
-    for (name, action) in &spec.refs {
-        if let RefAction::Phase(actions) = action {
-            let actions = actions.clone();
-            parser.state_action_ref(name.as_str(), move |rule, ctx| {
-                for action in &actions {
-                    action(rule, ctx)?;
-                }
-                Ok(())
-            });
-        }
-    }
-
-    // ... and then throw the tree away. `to_recognition_spec` strips every
-    // AST-building action the compiler emitted and returns the same rules,
-    // the same tokens and the same accepted language as pure data.
-    //
-    // This is not an optimisation to taste. Building the `{rule, src,
-    // kids}` tree is QUADRATIC in an identifier's length here: each
-    // `*`/`1*` repetition compiles to a per-character helper that
-    // re-appends its child's `src` and re-copies its `kids` at every
-    // nesting level. The plugin never reads that tree -- the action above
+    // The compiler's tree-building actions are already gone (bnf's
+    // recognition mode). This is not an optimisation to taste. Building
+    // the `{rule, src, kids}` tree is QUADRATIC in an identifier's length
+    // here: each `*`/`1*` repetition compiles to a per-character helper
+    // that re-appends its child's `src` and re-copies its `kids` at every
+    // nesting level. The plugin never reads that tree -- the action below
     // builds the value from the accepted text -- so nothing is lost, and
     // `tests/perf_test.rs` pins three parts of the repair: a long
     // identifier parses at all, the cost of eight times the input stays
-    // inside the profile's bound, and the emitted document carries no
+    // inside the profile's bound, and the installed document carries no
     // tree-building action at all. A release build is then linear, and
     // measured so to 1,000,000 characters; a debug build is quadratic
     // for a reason that lives in the engine rather than here, which
     // `AGENTS.md` records and which is why the test sizes differ by
     // profile.
-    let mut document =
-        to_recognition_spec(&spec).map_err(|error| GrammarError(format!("semver: {error}")))?;
+    let mut document: Json = serde_json::from_str(GRAMMAR_SPEC).map_err(|error| {
+        GrammarError(format!("semver: the compiled grammar is not JSON: {error}"))
+    })?;
+
+    // The single semantic action, on the compiler's end-of-source wrapper
+    // -- the rule the compiled grammar names in `options.rule.start`,
+    // normally `__start__` (the compiler numbers the name only if the
+    // grammar declares one itself, which this one does not). That rule
+    // closes on `#ZZ` and nothing else, so it closes exactly when the
+    // whole source has been accepted: the context's source is then the
+    // accepted text, character for character, because with every default
+    // lexer off (below) nothing was skipped on the way in.
+    //
+    // The wrapper, not `semver`: `semver` closes as soon as a VERSION has
+    // been read, which for `1.2.3f` happens before the engine discovers
+    // the trailing `f`. Building a value there would report a wrong
+    // version on a string the grammar is about to reject.
+    //
+    // The hook is registered under the engine's own `@<rule>-<phase>`
+    // name, which the engine auto-installs when that rule is loaded: the
+    // name `tabnas-abnf`'s `attach_actions` gave it.
+    let start_rule = start_rule_name(&document);
+    parser.state_action_ref(
+        format!("@{start_rule}-ac"),
+        |rule: &mut Rule, ctx: &mut Context| {
+            *rule.node.borrow_mut() = from_text(&ctx.source);
+            Ok(())
+        },
+    );
+
     apply_options(&mut document)?;
 
     let engine = tabnas::GrammarSpec::from_value(document)?;
@@ -358,12 +350,13 @@ pub fn semver(parser: &mut Tabnas) -> Result<(), GrammarError> {
     Ok(())
 }
 
-/// The name of the compiler's end-of-source wrapper, from the converted
-/// spec's own options. `__start__` unless the grammar declared that name
-/// itself, which this one does not.
-fn start_rule_name(spec: &GrammarSpec) -> String {
-    spec.options
-        .get("rule")
+/// The name of the compiler's end-of-source wrapper, from the compiled
+/// grammar's own options. `__start__` unless the grammar declared that
+/// name itself, which this one does not.
+fn start_rule_name(document: &Json) -> String {
+    document
+        .get("options")
+        .and_then(|options| options.get("rule"))
         .and_then(|rule| rule.get("start"))
         .and_then(Json::as_str)
         .unwrap_or("__start__")
@@ -428,7 +421,7 @@ pub fn plugin() -> Plugin {
 /// Build a semver parser: a bare engine with this plugin installed, the
 /// counterpart of `new Tabnas().use(Semver)` and the Go `Make()`.
 ///
-/// Compiling the grammar dominates a parse, so build one and reuse it.
+/// Installing the grammar dominates a parse, so build one and reuse it.
 ///
 /// ```
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -455,7 +448,7 @@ pub fn make_with(_options: SemverOptions) -> Tabnas {
 
 /// Parse one version string with a shared default parser.
 ///
-/// Compiling the grammar dominates a parse, so the no-options path reuses
+/// Installing the grammar dominates a parse, so the no-options path reuses
 /// one instance. Parsing builds a fresh context per call and only reads
 /// instance state, so the shared instance is safe for concurrent use.
 ///

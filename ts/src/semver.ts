@@ -7,10 +7,11 @@
  *  The parser IS the specification's grammar: `semver-grammar.abnf` at the
  *  repository root (embedded below) is the semver.org BNF transcribed into
  *  RFC 5234 ABNF, and @tabnas/abnf compiles it into the engine's rule set
- *  when the plugin is installed. Nothing here decides what a valid version
- *  is — the grammar accepts or rejects — and the only code that runs
- *  during a parse is the one action that turns the accepted text into the
- *  `Version` value.
+ *  at build time (`npm run gen-grammar`, which writes semver-grammar.json);
+ *  the plugin installs that compiled rule set and loads no compiler.
+ *  Nothing here decides what a valid version is — the grammar accepts or
+ *  rejects — and the only code that runs during a parse is the one action
+ *  that turns the accepted text into the `Version` value.
  *
  *    new Tabnas().use(Semver).parse('1.2.3-alpha.1+build.5')
  *    // => { major: 1, minor: 2, patch: 3,
@@ -20,8 +21,17 @@
  *  two parsed values, and `format` renders a value back to its string.
  */
 
-import type { Tabnas, Plugin, Rule, Context } from '@tabnas/parser'
-import { abnfConvert, attachActions, toRecognitionSpec } from '@tabnas/abnf'
+import type { Tabnas, Plugin, Rule, Context, GrammarSpec } from '@tabnas/parser'
+
+// The grammar, compiled at build time: semver-grammar.json at the
+// repository root, generated from semver-grammar.abnf by `npm run
+// gen-grammar` (gen-grammar.js) and copied here. Never edit either copy.
+import compiledGrammar from './semver-grammar.json'
+
+// The engine's GrammarSpec type describes a match token as a RegExp; the
+// serialized form carries it as an `@~/…/` string, which `tn.grammar()`
+// resolves on install. Hence the cast.
+const COMPILED = compiledGrammar as unknown as GrammarSpec
 
 
 // The plugin has no options yet. The type exists so `tn.use(Semver, {})`
@@ -63,10 +73,12 @@ const grammarText = `
 ;   (section "Backus–Naur Form Grammar for Valid SemVer Versions")
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
-; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
-; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
-; edit the copies).
+; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at BUILD time:
+; "npm run gen-grammar" (from ts/) writes semver-grammar.json beside this
+; file and a copy of it into each runtime, which installs that compiled
+; grammar and loads no compiler. ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs also embed this text verbatim, as the exported grammar
+; ("npm run embed" copies it there). Never edit any copy.
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is
@@ -192,56 +204,49 @@ letter = %x41-5A / %x61-7A
 
 // Plugin implementation.
 const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
-  // Compile the specification's grammar into an engine rule set. The
-  // start rule is `semver`, a pure alias of the specification's
-  // `valid-semver`: the name has no hyphen in it, which used to be what
-  // let a lifecycle hook bind on the published engine, whose TypeScript
-  // half derived a phase from `@<rule>-<phase>` by splitting at the
-  // first hyphen. The hook has since moved to the compiler's
-  // end-of-source wrapper (below), so nothing depends on that any more,
-  // but the alias stays: it is the name this plugin's grammar, fixtures
-  // and diagnostics all use for the entry production.
+  // The specification's grammar, compiled. `npm run gen-grammar` runs
+  // @tabnas/abnf over semver-grammar.abnf at BUILD time and writes the
+  // engine's serialized rule set to semver-grammar.json, a copy of which
+  // is imported above, so installing the plugin loads no compiler. The
+  // compile is the one this plugin used to run here at every install:
   //
-  // Then throw the tree away. `toRecognitionSpec` strips every
-  // AST-building action the compiler emitted (the `a:` refs into
-  // `spec.ref`) and returns the same rules with the same language.
-  // Building the `{rule, src, kids}` tree is QUADRATIC in an
-  // identifier's length here: each `*`/`1*` repetition compiles to a
-  // per-character helper that re-appends its child's `src` and re-copies
-  // its `kids` at every nesting level, so `1.0.0-` + 16,000 letters cost
-  // ~10 s and 2.7 GB in TS, and 32,000 aborted the process. The plugin
-  // never reads that tree — the action below builds the value from the
-  // accepted text — so nothing is lost, and the same input now parses in
-  // ~0.16 s and ~60 MB.
-  const spec = toRecognitionSpec(
-    abnfConvert(grammarText, { start: 'semver', tag: 'semver' }))
-
-  // Every character class must be lexable at any lookahead slot. The
-  // engine gates match tokens on a per-rule collated column that is
-  // path-blind: the `*digit` helper peeks two digits, so at its second
-  // slot only a digit is expected, and the letter that ends `01a` or `12a`
-  // lexed as a fatal bad token there. Marking a class `eager$` is the
-  // opt-out; @tabnas/bnf does it for every class since tabnas/bnf#33 (the
-  // Go emitter always did), and this loop is that change ported here so
-  // the plugin is correct on the published compiler too — it is a no-op
-  // once the emitter already set the flag. Safe for this grammar under
-  // either lexer generation because its three classes and four literals
-  // are pairwise disjoint: no character can be cut two ways.
-  const tokens: Record<string, RegExp & { eager$?: boolean }> =
-    (spec.options && spec.options.match && spec.options.match.token) || {}
-  for (const name of Object.keys(tokens)) {
-    if (tokens[name] instanceof RegExp) tokens[name].eager$ = true
-  }
+  // - The start rule is `semver`, a pure alias of the specification's
+  //   `valid-semver`: the name has no hyphen in it, which used to be what
+  //   let a lifecycle hook bind on the published engine, whose TypeScript
+  //   half derived a phase from `@<rule>-<phase>` by splitting at the
+  //   first hyphen. The hook has since moved to the compiler's
+  //   end-of-source wrapper (below), so nothing depends on that any more,
+  //   but the alias stays: it is the name this plugin's grammar, fixtures
+  //   and diagnostics all use for the entry production.
+  //
+  // - The tree is thrown away. `toRecognitionSpec` strips every
+  //   AST-building action the compiler emitted and keeps the same rules
+  //   with the same language. Building the `{rule, src, kids}` tree is
+  //   QUADRATIC in an identifier's length here: each `*`/`1*` repetition
+  //   compiles to a per-character helper that re-appends its child's
+  //   `src` and re-copies its `kids` at every nesting level, so `1.0.0-`
+  //   + 16,000 letters cost ~10 s and 2.7 GB in TS, and 32,000 aborted
+  //   the process. The plugin never reads that tree — the action below
+  //   builds the value from the accepted text — so nothing is lost, and
+  //   the same input now parses in ~0.16 s and ~60 MB.
+  //
+  // - Every character class is `eager$` (`@~/…/` in the file), so it can
+  //   be lexed at any lookahead slot; gen-grammar.js says why.
+  const compiled = COMPILED
+  const compiledOptions: any = compiled.options
 
   // The single semantic action, on the compiler's end-of-source wrapper
-  // — the rule `abnfConvert` names in `options.rule.start`, normally
-  // `__start__` (it numbers the name only if the grammar declares one
-  // itself, which this one does not). That rule closes on `#ZZ` and
-  // nothing else, so it closes exactly when the whole source has been
-  // accepted: `ctx.src()` is then the accepted text, character for
-  // character — with every default lexer off (below) nothing was
-  // skipped on the way in — and it is the same string the discarded
-  // tree's `src` used to hold. Its node is what `parse` returns.
+  // — the rule the compiled grammar names in `options.rule.start`,
+  // normally `__start__` (the compiler numbers the name only if the
+  // grammar declares one itself, which this one does not). That rule
+  // closes on `#ZZ` and nothing else, so it closes exactly when the whole
+  // source has been accepted: `ctx.src()` is then the accepted text,
+  // character for character — with every default lexer off (below)
+  // nothing was skipped on the way in — and it is the same string the
+  // discarded tree's `src` used to hold. Its node is what `parse` returns.
+  // The engine wires a `@<rule>-<phase>` ref as that rule's state action
+  // when the rule is installed, which is the form @tabnas/abnf's
+  // `attachActions` gave the same hook.
   //
   // The wrapper, not `semver`: `semver` closes as soon as a VERSION has
   // been read, which for `1.2.3f` happens before the engine discovers
@@ -250,12 +255,12 @@ const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
   // `1.2.3f`, throw a raw `SyntaxError` from `BigInt('3f')`) on a
   // string the grammar is about to reject. Positions and error codes
   // are unaffected either way: this action only runs on success.
-  const startRule = (spec.options as any).rule.start
-  attachActions(spec, {
-    [`@${startRule}:ac`]: (r: Rule, ctx: Context) => {
+  const startRule = compiledOptions.rule.start
+  const ref: Record<string, any> = {
+    [`@${startRule}-ac`]: (r: Rule, ctx: Context) => {
       r.node = fromText(ctx.src())
     },
-  })
+  }
 
   // The compiled spec brings its own tokens (`.`, `-`, `+`, `0` and the
   // three character classes); everything else the engine lexes by default
@@ -265,11 +270,14 @@ const Semver: Plugin = (tn: Tabnas, _options: SemverOptions) => {
   // comment. The engine's default punctuation tokens go too: they are
   // JSON's, not semver's, and would otherwise show up in diagnostics and
   // introspection as tokens of this grammar.
-  spec.options = {
-    ...spec.options,
+  //
+  // A new top-level object: the imported grammar is shared by every
+  // instance and is never written to (the engine installs a copy).
+  const options: any = {
+    ...compiledOptions,
     fixed: {
       token: {
-        ...((spec.options && spec.options.fixed && spec.options.fixed.token) || {}),
+        ...((compiledOptions.fixed && compiledOptions.fixed.token) || {}),
         '#OB': null,
         '#CB': null,
         '#OS': null,
@@ -305,7 +313,7 @@ See https://semver.org/spec/v2.0.0.html`,
     },
   }
 
-  tn.grammar(spec)
+  tn.grammar({ ...compiled, ref, options } as GrammarSpec)
 }
 
 

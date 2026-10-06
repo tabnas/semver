@@ -7,8 +7,8 @@
 // install themselves (new Tabnas().use(Semver)). So there is nothing for the
 // module to cache — the regression we can guard is the *usage*: build ONE
 // instance and reuse it for many parses, never rebuilding the engine and
-// compiling the ABNF per parse. Compiling the grammar dominates a parse by
-// orders of magnitude.
+// installing the grammar per parse. Installing the grammar dominates a
+// parse by more than an order of magnitude.
 //
 // The check is machine-INDEPENDENT: it compares reuse against a single parse
 // and against the rebuild-per-parse anti-pattern on the SAME machine in the
@@ -51,7 +51,7 @@ describe('perf', () => {
 
     // Time N/10 parses that REBUILD a fresh instance every call — the
     // anti-pattern this guards against. A tenth of N, scaled below: each
-    // rebuild compiles the grammar, which is ~1000x a parse.
+    // rebuild installs the whole grammar, which is dozens of parses.
     const M = N / 10
     t0 = process.hrtime.bigint()
     for (let i = 0; i < M; i++) {

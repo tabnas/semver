@@ -1,0 +1,3385 @@
+{
+  "options": {
+    "fixed": {
+      "token": {
+        "#0": "0",
+        "#T": ".",
+        "#T1": "-",
+        "#T2": "+"
+      }
+    },
+    "rule": {
+      "start": "__start__"
+    },
+    "lex": {
+      "empty": false
+    },
+    "match": {
+      "token": {
+        "#RX___U0031__U0039": "@~/^[\\u0031-\\u0039]/",
+        "#RX___U0041__U005A": "@~/^[\\u0041-\\u005a]/",
+        "#RX___U0061__U007A": "@~/^[\\u0061-\\u007a]/"
+      }
+    }
+  },
+  "rule": {
+    "semver": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "valid-semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt0": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0 #T",
+          "p": "minor"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt0$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt0$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "patch"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt0$step2",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt0$step2": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen2_opt__gen1_group"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt0$step3",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt0$step3": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen4_opt__gen3_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039",
+          "p": "_gen5_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt1$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt1$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "minor"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt1$step2",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt1$step2": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "patch"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt1$step3",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt1$step3": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen7_opt__gen6_group"
+        }
+      ],
+      "close": [
+        {
+          "r": "valid-semver$alt1$step4",
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver$alt1$step4": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen9_opt__gen8_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "valid-semver": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "valid-semver$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "valid-semver$alt1",
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core$alt0": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0 #T",
+          "p": "minor"
+        }
+      ],
+      "close": [
+        {
+          "r": "version-core$alt0$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core$alt0$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "patch"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core$alt1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039",
+          "p": "_gen10_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "version-core$alt1$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core$alt1$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "minor"
+        }
+      ],
+      "close": [
+        {
+          "r": "version-core$alt1$step2",
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core$alt1$step2": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "patch"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "version-core": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "version-core$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "version-core$alt1",
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "major": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "numeric-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "minor": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "numeric-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "patch": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "numeric-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt0": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0",
+          "p": "_gen13_opt__gen12_group"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt0$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt0$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen15_star__gen14_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039",
+          "p": "_gen16_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt1$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt1$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen18_opt__gen17_group"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt1$step2",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt1$step2": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen20_star__gen19_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt2": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "p": "_gen21_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt2$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt2$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen23_star__gen22_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt3": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "p": "_gen24_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt3$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt3$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen26_star__gen25_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt4": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T1",
+          "p": "_gen27_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release$alt4$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release$alt4$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen29_star__gen28_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "pre-release$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "pre-release$alt1",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "pre-release$alt2",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "pre-release$alt3",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "pre-release$alt4",
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "build": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen30_plus_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "build$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "build$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen33_star__gen32_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt0": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0",
+          "p": "_gen36_opt__gen35_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt1": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039",
+          "p": "_gen37_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "pre-release-identifier$alt1$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt1$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen39_opt__gen38_group"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt2": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "p": "_gen40_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt3": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "p": "_gen41_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier$alt4": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T1",
+          "p": "_gen42_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "pre-release-identifier": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "pre-release-identifier$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "pre-release-identifier$alt1",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "pre-release-identifier$alt2",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "pre-release-identifier$alt3",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "pre-release-identifier$alt4",
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "alphanumeric-tail": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "p": "_gen43_star_identifier-character"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "p": "_gen44_star_identifier-character"
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "p": "_gen45_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "build-identifier": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen46_plus_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "numeric-identifier": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039",
+          "p": "_gen48_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "identifier-character": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A"
+        },
+        {
+          "g": "semver",
+          "s": "#T1"
+        }
+      ]
+    },
+    "non-digit": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A"
+        },
+        {
+          "g": "semver",
+          "s": "#T1"
+        }
+      ]
+    },
+    "digit": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#0"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039"
+        }
+      ]
+    },
+    "positive-digit": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0031__U0039"
+        }
+      ]
+    },
+    "letter": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A"
+        }
+      ]
+    },
+    "_gen1_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T1",
+          "p": "pre-release"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen2_opt__gen1_group": {
+      "open": [
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen1_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen3_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T2",
+          "p": "build"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen4_opt__gen3_group": {
+      "open": [
+        {
+          "s": "#T2",
+          "b": 1,
+          "p": "_gen3_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen5_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen5_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen5_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen5_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen5_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen5_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen5_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen5_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen6_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T1",
+          "p": "pre-release"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen7_opt__gen6_group": {
+      "open": [
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen6_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen8_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T2",
+          "p": "build"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen9_opt__gen8_group": {
+      "open": [
+        {
+          "s": "#T2",
+          "b": 1,
+          "p": "_gen8_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen10_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen10_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen10_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen10_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen10_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen10_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen10_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen10_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen11_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen11_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen11_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen11_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen11_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen11_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen11_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen11_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen12_group": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen11_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen12_group$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen12_group$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "alphanumeric-tail"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen13_opt__gen12_group": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "_gen12_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "_gen12_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "_gen12_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "_gen12_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen12_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen14_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "pre-release-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen15_star__gen14_group$alt0": {
+      "open": [
+        {
+          "p": "_gen14_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen15_star__gen14_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen15_star__gen14_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen15_star__gen14_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen15_star__gen14_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen15_star__gen14_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen15_star__gen14_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen16_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen16_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen16_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen16_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen16_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen16_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen16_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen16_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen17_group": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "alphanumeric-tail"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen18_opt__gen17_group": {
+      "open": [
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "_gen17_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "_gen17_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen17_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen19_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "pre-release-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen20_star__gen19_group$alt0": {
+      "open": [
+        {
+          "p": "_gen19_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen20_star__gen19_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen20_star__gen19_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen20_star__gen19_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen20_star__gen19_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen20_star__gen19_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen20_star__gen19_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen21_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen21_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen21_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen21_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen21_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen21_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen21_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen21_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen21_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen21_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen21_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen22_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "pre-release-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen23_star__gen22_group$alt0": {
+      "open": [
+        {
+          "p": "_gen22_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen23_star__gen22_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen23_star__gen22_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen23_star__gen22_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen23_star__gen22_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen23_star__gen22_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen23_star__gen22_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen24_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen24_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen24_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen24_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen24_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen24_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen24_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen24_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen24_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen24_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen24_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen25_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "pre-release-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen26_star__gen25_group$alt0": {
+      "open": [
+        {
+          "p": "_gen25_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen26_star__gen25_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen26_star__gen25_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen26_star__gen25_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen26_star__gen25_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen26_star__gen25_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen26_star__gen25_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen27_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen27_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen27_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen27_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen27_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen27_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen27_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen27_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen27_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen27_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen27_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen28_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "pre-release-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen29_star__gen28_group$alt0": {
+      "open": [
+        {
+          "p": "_gen28_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen29_star__gen28_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen29_star__gen28_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen29_star__gen28_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen29_star__gen28_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen29_star__gen28_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen29_star__gen28_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen30_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen30_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen30_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen30_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen30_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen30_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen30_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen30_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen30_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen30_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen30_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen30_plus_identifier-character": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen30_plus_identifier-character$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen30_plus_identifier-character$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen30_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen32_group": {
+      "open": [
+        {
+          "g": "semver",
+          "s": "#T",
+          "p": "build-identifier"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen33_star__gen32_group$alt0": {
+      "open": [
+        {
+          "p": "_gen32_group",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen33_star__gen32_group$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen33_star__gen32_group$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen33_star__gen32_group",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen33_star__gen32_group": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen33_star__gen32_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T",
+          "b": 1,
+          "r": "_gen33_star__gen32_group$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen34_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen34_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen34_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen34_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen34_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen34_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen34_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen34_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen35_group": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen34_star_digit"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen35_group$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen35_group$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "alphanumeric-tail"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen36_opt__gen35_group": {
+      "open": [
+        {
+          "s": "#0",
+          "b": 1,
+          "p": "_gen35_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "p": "_gen35_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "_gen35_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "_gen35_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen35_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen37_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen37_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen37_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen37_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen37_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen37_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen37_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen37_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0041__U005A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#RX___U0061__U007A",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen38_group": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "alphanumeric-tail"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen39_opt__gen38_group": {
+      "open": [
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "p": "_gen38_group",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "p": "_gen38_group",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "p": "_gen38_group",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen40_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen40_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen40_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen40_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen40_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen40_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen40_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen40_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen40_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen40_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen40_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen41_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen41_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen41_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen41_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen41_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen41_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen41_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen41_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen41_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen41_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen41_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen42_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen42_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen42_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen42_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen42_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen42_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen42_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen42_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen42_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen42_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen42_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen43_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen43_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen43_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen43_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen43_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen43_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen43_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen43_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen43_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen43_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen43_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen44_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen44_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen44_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen44_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen44_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen44_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen44_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen44_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen44_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen44_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen44_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen45_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen45_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen45_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen45_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen45_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen45_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen45_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen45_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen45_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen45_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen45_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen46_star_identifier-character$alt0": {
+      "open": [
+        {
+          "p": "identifier-character",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen46_star_identifier-character$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen46_star_identifier-character$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen46_star_identifier-character",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen46_star_identifier-character": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen46_star_identifier-character",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen46_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen46_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0041__U005A",
+          "b": 1,
+          "r": "_gen46_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0061__U007A",
+          "b": 1,
+          "r": "_gen46_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#T1",
+          "b": 1,
+          "r": "_gen46_star_identifier-character$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen46_plus_identifier-character": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen46_plus_identifier-character$step1",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen46_plus_identifier-character$step1": {
+      "open": [
+        {
+          "g": "semver",
+          "p": "_gen46_star_identifier-character"
+        }
+      ],
+      "close": [
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen48_star_digit$alt0": {
+      "open": [
+        {
+          "p": "digit",
+          "n": {
+            "rep": 0
+          },
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "r": "_gen48_star_digit$alt0$step1",
+          "n": {
+            "rep": 1
+          },
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen48_star_digit$alt0$step1": {
+      "open": [
+        {
+          "r": "_gen48_star_digit",
+          "g": "semver"
+        }
+      ]
+    },
+    "_gen48_star_digit": {
+      "open": [
+        {
+          "c": {
+            "n.rep": 0
+          },
+          "n": {
+            "rep": 1
+          },
+          "r": "_gen48_star_digit",
+          "g": "semver"
+        },
+        {
+          "s": "#0",
+          "b": 1,
+          "r": "_gen48_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "s": "#RX___U0031__U0039",
+          "b": 1,
+          "r": "_gen48_star_digit$alt0",
+          "g": "semver"
+        },
+        {
+          "g": "semver",
+          "s": "#T",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T1",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#T2",
+          "b": 1
+        },
+        {
+          "g": "semver",
+          "s": "#ZZ",
+          "b": 1
+        },
+        {
+          "g": "semver"
+        }
+      ]
+    },
+    "__start__": {
+      "open": [
+        {
+          "p": "semver",
+          "g": "semver"
+        }
+      ],
+      "close": [
+        {
+          "s": "#ZZ",
+          "g": "semver,end"
+        }
+      ]
+    }
+  },
+  "v": 5,
+  "meta": {
+    "provenance": {
+      "__start__": "semver",
+      "_gen10_star_digit": "version-core",
+      "_gen10_star_digit$alt0": "version-core",
+      "_gen10_star_digit$alt0$step1": "version-core",
+      "_gen11_star_digit": "pre-release",
+      "_gen11_star_digit$alt0": "pre-release",
+      "_gen11_star_digit$alt0$step1": "pre-release",
+      "_gen12_group": "pre-release",
+      "_gen12_group$step1": "pre-release",
+      "_gen13_opt__gen12_group": "pre-release",
+      "_gen14_group": "pre-release",
+      "_gen15_star__gen14_group": "pre-release",
+      "_gen15_star__gen14_group$alt0": "pre-release",
+      "_gen15_star__gen14_group$alt0$step1": "pre-release",
+      "_gen16_star_digit": "pre-release",
+      "_gen16_star_digit$alt0": "pre-release",
+      "_gen16_star_digit$alt0$step1": "pre-release",
+      "_gen17_group": "pre-release",
+      "_gen18_opt__gen17_group": "pre-release",
+      "_gen19_group": "pre-release",
+      "_gen1_group": "valid-semver",
+      "_gen20_star__gen19_group": "pre-release",
+      "_gen20_star__gen19_group$alt0": "pre-release",
+      "_gen20_star__gen19_group$alt0$step1": "pre-release",
+      "_gen21_star_identifier-character": "pre-release",
+      "_gen21_star_identifier-character$alt0": "pre-release",
+      "_gen21_star_identifier-character$alt0$step1": "pre-release",
+      "_gen22_group": "pre-release",
+      "_gen23_star__gen22_group": "pre-release",
+      "_gen23_star__gen22_group$alt0": "pre-release",
+      "_gen23_star__gen22_group$alt0$step1": "pre-release",
+      "_gen24_star_identifier-character": "pre-release",
+      "_gen24_star_identifier-character$alt0": "pre-release",
+      "_gen24_star_identifier-character$alt0$step1": "pre-release",
+      "_gen25_group": "pre-release",
+      "_gen26_star__gen25_group": "pre-release",
+      "_gen26_star__gen25_group$alt0": "pre-release",
+      "_gen26_star__gen25_group$alt0$step1": "pre-release",
+      "_gen27_star_identifier-character": "pre-release",
+      "_gen27_star_identifier-character$alt0": "pre-release",
+      "_gen27_star_identifier-character$alt0$step1": "pre-release",
+      "_gen28_group": "pre-release",
+      "_gen29_star__gen28_group": "pre-release",
+      "_gen29_star__gen28_group$alt0": "pre-release",
+      "_gen29_star__gen28_group$alt0$step1": "pre-release",
+      "_gen2_opt__gen1_group": "valid-semver",
+      "_gen30_plus_identifier-character": "build",
+      "_gen30_plus_identifier-character$step1": "build",
+      "_gen30_star_identifier-character": "build",
+      "_gen30_star_identifier-character$alt0": "build",
+      "_gen30_star_identifier-character$alt0$step1": "build",
+      "_gen32_group": "build",
+      "_gen33_star__gen32_group": "build",
+      "_gen33_star__gen32_group$alt0": "build",
+      "_gen33_star__gen32_group$alt0$step1": "build",
+      "_gen34_star_digit": "pre-release-identifier",
+      "_gen34_star_digit$alt0": "pre-release-identifier",
+      "_gen34_star_digit$alt0$step1": "pre-release-identifier",
+      "_gen35_group": "pre-release-identifier",
+      "_gen35_group$step1": "pre-release-identifier",
+      "_gen36_opt__gen35_group": "pre-release-identifier",
+      "_gen37_star_digit": "pre-release-identifier",
+      "_gen37_star_digit$alt0": "pre-release-identifier",
+      "_gen37_star_digit$alt0$step1": "pre-release-identifier",
+      "_gen38_group": "pre-release-identifier",
+      "_gen39_opt__gen38_group": "pre-release-identifier",
+      "_gen3_group": "valid-semver",
+      "_gen40_star_identifier-character": "pre-release-identifier",
+      "_gen40_star_identifier-character$alt0": "pre-release-identifier",
+      "_gen40_star_identifier-character$alt0$step1": "pre-release-identifier",
+      "_gen41_star_identifier-character": "pre-release-identifier",
+      "_gen41_star_identifier-character$alt0": "pre-release-identifier",
+      "_gen41_star_identifier-character$alt0$step1": "pre-release-identifier",
+      "_gen42_star_identifier-character": "pre-release-identifier",
+      "_gen42_star_identifier-character$alt0": "pre-release-identifier",
+      "_gen42_star_identifier-character$alt0$step1": "pre-release-identifier",
+      "_gen43_star_identifier-character": "alphanumeric-tail",
+      "_gen43_star_identifier-character$alt0": "alphanumeric-tail",
+      "_gen43_star_identifier-character$alt0$step1": "alphanumeric-tail",
+      "_gen44_star_identifier-character": "alphanumeric-tail",
+      "_gen44_star_identifier-character$alt0": "alphanumeric-tail",
+      "_gen44_star_identifier-character$alt0$step1": "alphanumeric-tail",
+      "_gen45_star_identifier-character": "alphanumeric-tail",
+      "_gen45_star_identifier-character$alt0": "alphanumeric-tail",
+      "_gen45_star_identifier-character$alt0$step1": "alphanumeric-tail",
+      "_gen46_plus_identifier-character": "build-identifier",
+      "_gen46_plus_identifier-character$step1": "build-identifier",
+      "_gen46_star_identifier-character": "build-identifier",
+      "_gen46_star_identifier-character$alt0": "build-identifier",
+      "_gen46_star_identifier-character$alt0$step1": "build-identifier",
+      "_gen48_star_digit": "numeric-identifier",
+      "_gen48_star_digit$alt0": "numeric-identifier",
+      "_gen48_star_digit$alt0$step1": "numeric-identifier",
+      "_gen4_opt__gen3_group": "valid-semver",
+      "_gen5_star_digit": "valid-semver",
+      "_gen5_star_digit$alt0": "valid-semver",
+      "_gen5_star_digit$alt0$step1": "valid-semver",
+      "_gen6_group": "valid-semver",
+      "_gen7_opt__gen6_group": "valid-semver",
+      "_gen8_group": "valid-semver",
+      "_gen9_opt__gen8_group": "valid-semver",
+      "build$step1": "build",
+      "pre-release$alt0": "pre-release",
+      "pre-release$alt0$step1": "pre-release",
+      "pre-release$alt1": "pre-release",
+      "pre-release$alt1$step1": "pre-release",
+      "pre-release$alt1$step2": "pre-release",
+      "pre-release$alt2": "pre-release",
+      "pre-release$alt2$step1": "pre-release",
+      "pre-release$alt3": "pre-release",
+      "pre-release$alt3$step1": "pre-release",
+      "pre-release$alt4": "pre-release",
+      "pre-release$alt4$step1": "pre-release",
+      "pre-release-identifier$alt0": "pre-release-identifier",
+      "pre-release-identifier$alt1": "pre-release-identifier",
+      "pre-release-identifier$alt1$step1": "pre-release-identifier",
+      "pre-release-identifier$alt2": "pre-release-identifier",
+      "pre-release-identifier$alt3": "pre-release-identifier",
+      "pre-release-identifier$alt4": "pre-release-identifier",
+      "valid-semver$alt0": "valid-semver",
+      "valid-semver$alt0$step1": "valid-semver",
+      "valid-semver$alt0$step2": "valid-semver",
+      "valid-semver$alt0$step3": "valid-semver",
+      "valid-semver$alt1": "valid-semver",
+      "valid-semver$alt1$step1": "valid-semver",
+      "valid-semver$alt1$step2": "valid-semver",
+      "valid-semver$alt1$step3": "valid-semver",
+      "valid-semver$alt1$step4": "valid-semver",
+      "version-core$alt0": "version-core",
+      "version-core$alt0$step1": "version-core",
+      "version-core$alt1": "version-core",
+      "version-core$alt1$step1": "version-core",
+      "version-core$alt1$step2": "version-core"
+    }
+  }
+}

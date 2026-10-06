@@ -27,7 +27,7 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 
 The value is typed `any`; on success it is always a `map[string]any`
 with exactly those five keys. `Parse` reuses one cached engine behind a
-mutex, so a loop does not recompile the grammar, and it is safe to call
+mutex, so a loop installs the grammar only once, and it is safe to call
 from several goroutines at once.
 
 ## Validate without using the value
@@ -212,9 +212,9 @@ identifier is never converted: `1.0.0+9007199254740993` keeps
 
 ## Reuse a parser for many inputs
 
-Installing the plugin compiles the ABNF grammar (on the order of 10 ms
-in Go); a parse takes on the order of 100 µs. `Parse` hides the compile
-by keeping one instance, but it also serialises every caller through a
+Installing the plugin loads the compiled grammar (a few milliseconds in
+Go); a parse takes a tenth of a millisecond or less. `Parse` hides the
+install by keeping one instance, but it also serialises every caller through a
 mutex. For a hot loop on one goroutine, build your own instance with
 `Make` and reuse it:
 
@@ -313,8 +313,8 @@ back on: it would then accept strings the specification rejects.
 
 ## Get the grammar text
 
-The ABNF the plugin compiles is exported as `Grammar`, a string constant
-holding the text of
+The ABNF the build compiles the plugin's rule set from is exported as
+`Grammar`, a string constant holding the text of
 [`semver-grammar.abnf`](../../semver-grammar.abnf) at the repository
 root, embedded at build time (the literal opens with one newline, so the
 first line printed is blank):

@@ -15,9 +15,9 @@ differs from TypeScript, see [concepts](concepts.md).
 
 ## 1. Install
 
-`tabnassemver` is a plugin for the tabnas engine. The engine and the
-ABNF compiler it needs are dependencies of the module, so a single
-`go get` is enough:
+`tabnassemver` is a plugin for the tabnas engine. The engine is a
+dependency of the module, and the module embeds the grammar compiled,
+so a single `go get` is enough:
 
 ```bash
 go get github.com/tabnas/semver/go@latest
@@ -207,15 +207,15 @@ unless the engine's colour option is turned off). For logs,
 
 ## 7. Reuse one instance in a hot loop
 
-Installing the plugin compiles the grammar, and that compile dominates a
-parse by orders of magnitude (about 10 ms against about 100 µs). The
-package-level `Parse` you have used so far builds one engine on the
+Installing the plugin loads the compiled grammar into the engine, and
+that dominates a parse by more than an order of magnitude (a few
+milliseconds against a tenth of one or less). The package-level `Parse` you have used so far builds one engine on the
 first call and keeps it, serialising callers through a mutex, so it is
 safe to call from any goroutine. When one goroutine parses many strings,
 skip the mutex: build an instance with `Make` and reuse it.
 
 ```go
-j := tabnassemver.Make() // compiles the grammar once
+j := tabnassemver.Make() // installs the grammar once
 
 for _, s := range tags {
 	v, err := j.Parse(s)
@@ -234,7 +234,7 @@ installed, which you can also spell out yourself:
 ```go
 j := tabnas.Make()
 if err := j.Use(tabnassemver.Semver); err != nil {
-	// the embedded grammar failed to compile: a broken build, not bad input
+	// the embedded grammar failed to load: a broken build, not bad input
 }
 ```
 

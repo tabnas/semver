@@ -272,10 +272,11 @@ describe('semver', () => {
     })
 
     test('marks every character-class token eager (port of tabnas/bnf#33)', () => {
-      // src/semver.ts sets the flag after compiling so the plugin is right
-      // on the published @tabnas/bnf too. Delete this test with that loop
-      // once the peer floor is a bnf that sets it itself (AGENTS.md, "The
-      // tabnas engine dependency").
+      // gen-grammar.js sets the flag after compiling, and the compiled
+      // grammar carries it as `@~/…/`. This reads it back from the live
+      // engine, so it holds the installed grammar, not just the file.
+      // Delete this test with that loop once no supported @tabnas/bnf can
+      // omit the flag (AGENTS.md, "The tabnas engine dependency").
       const tokens = (tn.options as any).match.token as Record<
         string,
         RegExp & { eager$?: boolean }
@@ -289,7 +290,7 @@ describe('semver', () => {
       for (const k of classes) assert.equal(tokens[k].eager$, true, k)
     })
 
-    test('exports the ABNF grammar text it compiles', () => {
+    test('exports the ABNF grammar text its rule set is compiled from', () => {
       assert.equal(typeof grammar, 'string')
       assert.match(grammar, /^valid-semver = version-core \[ "-" pre-release \] \[ "\+" build \]$/m)
       assert.match(grammar, /^semver = valid-semver$/m)

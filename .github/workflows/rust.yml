@@ -15,8 +15,9 @@ name: Rust
 # The path lists name everything the gate READS, which is wider than
 # rs/: the crate's tests read the shared fixtures, the version test
 # reads ts/package.json and both other runtimes' constants, the embed
-# test reads the grammar file and both other embeds, and the embedder
-# itself writes the Rust block.
+# test reads the grammar file, the compiled grammar and both other
+# runtimes' copies of each, and the embedder and the grammar generator
+# write the Rust copies.
 on:
   # `branches` is set explicitly. A `push` trigger that names neither
   # branches nor tags also matches TAG pushes, and Actions does not
@@ -28,10 +29,13 @@ on:
     paths:
       - 'rs/**'
       - 'semver-grammar.abnf'
+      - 'semver-grammar.json'
       - 'ts/embed-grammar.js'
+      - 'ts/gen-grammar.js'
       - 'ts/src/**'
       - 'ts/package.json'
       - 'go/semver.go'
+      - 'go/semver-grammar.json'
       - 'test/spec/**'
       - 'test/precedence/**'
       - 'ci/rust/**'
@@ -40,10 +44,13 @@ on:
     paths:
       - 'rs/**'
       - 'semver-grammar.abnf'
+      - 'semver-grammar.json'
       - 'ts/embed-grammar.js'
+      - 'ts/gen-grammar.js'
       - 'ts/src/**'
       - 'ts/package.json'
       - 'go/semver.go'
+      - 'go/semver-grammar.json'
       - 'test/spec/**'
       - 'test/precedence/**'
       - 'ci/rust/**'
@@ -58,28 +65,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Checked out into a NAMED directory. rs/Cargo.toml takes the
-      # engine as `path = "../../parser/rs"` and the ABNF compiler as
-      # `path = "../../abnf/rs"`, which resolve relative to rs/, so both
-      # have to sit beside this checkout rather than inside it. A bare
-      # `actions/checkout` into the workspace root leaves nowhere for a
-      # sibling to go.
+      # engine as `path = "../../parser/rs"`, which resolves relative to
+      # rs/, so it has to sit beside this checkout rather than inside it.
+      # A bare `actions/checkout` into the workspace root leaves nowhere
+      # for a sibling to go.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           path: semver
 
-      # Sibling main branches, not releases: none of these crates is
-      # published, so this is the only resolution there is. `bnf` gets no
-      # entry in rs/Cargo.toml, because it is `abnf` that depends on it,
-      # but cargo reads the whole manifest graph before it compiles
-      # anything, so the checkout has to be here. `support` carries the
+      # Sibling main branches, not releases: this is the only resolution
+      # the path dependencies have. No `abnf` or `bnf`: the crate embeds
+      # the grammar already compiled (semver-grammar.json), so the ABNF
+      # compiler is no dependency of it in any table. `support` carries the
       # shared fixture runner and `debug` the introspection plugin the
       # composition test installs beside the grammar; both are
       # dev-dependencies.
       - name: Clone the sibling crates
         run: |
           git clone --depth 1 https://github.com/tabnas/parser.git parser
-          git clone --depth 1 https://github.com/tabnas/abnf.git abnf
-          git clone --depth 1 https://github.com/tabnas/bnf.git bnf
           git clone --depth 1 https://github.com/tabnas/support.git support
           git clone --depth 1 https://github.com/tabnas/debug.git debug
 

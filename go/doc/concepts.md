@@ -15,22 +15,25 @@ four pieces:
 - the **tabnas engine** (`github.com/tabnas/parser/go`), a
   configurable lexer under a rule-and-alternative parser, driven by
   whatever grammar it is handed;
-- the **notation-neutral compiler** (`github.com/tabnas/bnf/go`), which turns
-  a grammar into the engine's rule set without knowing which notation it
+- the **notation-neutral compiler** (`@tabnas/bnf`), which turns a
+  grammar into the engine's rule set without knowing which notation it
   was written in;
-- the **ABNF front end** (`github.com/tabnas/abnf/go`), which reads RFC 5234
-  ABNF and drives that compiler; the plugin calls its `Abnf` and
-  `AttachActions`;
+- the **ABNF front end** (`@tabnas/abnf`), which reads RFC 5234 ABNF and
+  drives that compiler. Both run once, at build time, in the
+  TypeScript toolchain, and write the rule set to `semver-grammar.json`;
+  this module embeds that file and imports neither;
 - **this module** (`github.com/tabnas/semver/go`, package
-  `tabnassemver`), the grammar text, one semantic action, a set of
-  engine options, and the `Compare` and `Format` helpers.
+  `tabnassemver`), the grammar text, the rule set compiled from it, one
+  semantic action, a set of engine options, and the `Compare` and
+  `Format` helpers.
 
-Install is where the work happens. `Semver(j, opts)` compiles the ABNF
-into a rule set (about 10 ms), attaches the action, sets the options on
-the compiled spec and hands the whole thing to the engine in one
-`j.Grammar(spec)` call, so grammar and options arrive together. A parse
-afterwards costs about 100 µs, which is why every document here says to
-build one instance and reuse it: `Make()` returns a bare engine with the
+Install is where the remaining work happens. `Semver(j, opts)` loads
+the compiled grammar with `tabnas.GrammarSpecFromJSON`, attaches the
+action, sets the options on it, and hands the whole thing to the engine
+in one `j.Grammar(spec)` call, so grammar and options arrive together.
+That costs a few milliseconds, and a parse afterwards a tenth of one or
+less, which is why every document here says to build one instance and
+reuse it: `Make()` returns a bare engine with the
 plugin installed, and the package-level `Parse` keeps one such instance
 for the life of the process. Installing the plugin a second time on the
 same instance is a no-op (a `semver-init` decoration on the engine
@@ -100,10 +103,10 @@ checks that against an independent judge on every run.
 
 ## What the compiler makes of it
 
-`abnf.Abnf(Grammar, &abnf.AbnfConvertOptions{Start: "semver", Tag:
-"semver"})` returns a `*tabnas.GrammarSpec` holding the engine's rule
-set and the options it needs: for this grammar, 150 rules over seven
-tokens:
+The build runs `abnfConvert(grammar, { start: 'semver', tag: 'semver' })`
+(`@tabnas/abnf`) and writes the result, the engine's rule set and the
+options it needs, to `semver-grammar.json`: for this grammar, 150 rules
+over seven tokens. The TypeScript and Rust ports install the same file.
 
 | Grammar element | Compiled form |
 |---|---|
@@ -146,16 +149,12 @@ built by walking the tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
-The plugin asks for no parse tree. Once `abnf.Abnf` has returned the
-converted spec, `stripTreeActions` (in `semver.go`) drops every
-AST-building action the compiler emitted (every alternate action that
-resolves through `spec.Ref`, and in this grammar there is no other kind)
-leaving the same 150 rules over the same seven tokens, the same group
-tags and the same accepted language, and no `{rule, src, kids}` node
-behind any rule. It is the typed-spec equivalent of
-`bnf.ToRecognitionSpec`, which this port cannot use directly: that
-function returns a `map[string]any`, serialisable data rather than the
-`*tabnas.GrammarSpec` the engine installs (see [Hooks](#hooks)).
+The plugin asks for no parse tree. At build time,
+`toRecognitionSpec` drops every AST-building action the compiler
+emitted, leaving the same 150 rules over the same seven tokens, the same
+group tags and the same accepted language, and no `{rule, src, kids}`
+node behind any rule. `semver-grammar.json` is that result, so the
+plugin installs no tree-building action at all (see [Hooks](#hooks)).
 
 That is not a matter of taste. Every `*` and `1*` repetition compiles to
 a chain of per-character helper rules, and each level of the chain
@@ -172,8 +171,8 @@ parse in under 100 ms and about 50 MB, and cost grows with the length of
 the input rather than with its square; `perf_test.go` pins both.
 
 What remains is one semantic action, on the compiler's end-of-source
-wrapper: the rule named by `spec.Options.Rule.Start`, which for this
-grammar is `__start__`. That rule opens by pushing `semver` and closes
+wrapper: the rule named by `options.rule.start` in the compiled grammar,
+which for this grammar is `__start__`. That rule opens by pushing `semver` and closes
 on the end token `#ZZ` and nothing else, so when it closes the whole
 source has been accepted and `ctx.Src` (the text being parsed) IS the
 accepted version, byte for byte; every default lexer is off (below), so
@@ -183,18 +182,22 @@ anything: the first `+` opens the build metadata (no identifier contains
 `+`); before it, the first `-` opens the pre-release (the version core
 contains no `-`); `.` separates identifiers, which never contain it. The
 value map it builds becomes that rule's node, which is what `Parse`
-returns:
+returns. The engine wires a `@<rule>-<phase>` reference as that rule's
+state action when the rule is installed:
 
 ```go
 startRule := "__start__"
-if spec.Options != nil && spec.Options.Rule != nil && spec.Options.Rule.Start != "" {
-	startRule = spec.Options.Rule.Start
+if rule, ok := opt["rule"].(map[string]any); ok {
+	if start, ok := rule["start"].(string); ok && start != "" {
+		startRule = start
+	}
 }
-err = abnf.AttachActions(spec, abnf.ActionsMap{
-	"@" + startRule + ":ac": {func(r *tabnas.Rule, ctx *tabnas.Context) {
-		r.Node = fromText(ctx.Src)
-	}},
-})
+spec.Ref = map[tabnas.FuncRef]any{
+	tabnas.FuncRef("@" + startRule + "-ac"): tabnas.StateAction(
+		func(r *tabnas.Rule, ctx *tabnas.Context) {
+			r.Node = fromText(ctx.Src)
+		}),
+}
 ```
 
 Because the value is a function of the accepted text alone, `Format`
@@ -410,8 +413,9 @@ express: `*big.Int` values, function results, error details.
 ## Differences from the TS version
 
 The TypeScript implementation in `ts/src/semver.ts` is canonical; this
-module is a port built from the same `semver-grammar.abnf`, compiling
-it with the same options and running the same fixtures and the same
+module is a port built from the same `semver-grammar.abnf`, installing
+the same compiled `semver-grammar.json` with the same options and
+running the same fixtures and the same
 corpus with the same pinned census and hash. When the two disagree on
 parse behaviour, Go changes to match, unless Go has exposed a
 TypeScript defect, in which case TypeScript is fixed first, as happened
@@ -486,16 +490,15 @@ is guaranteed to match at a lookahead failure; see above.
 ### Hooks
 
 Both runtimes hang their one action on the compiler's `__start__`
-wrapper, and both install the grammar with the compiler's tree-building
-actions dropped. Only the way of dropping them differs. TypeScript calls
-the library's `toRecognitionSpec`, which hands back a spec it can go on
-to install; the Go `bnf.ToRecognitionSpec` returns a `map[string]any` (pure
-data, meant for serialising a grammar) which the engine cannot
-take without a reload round trip, so this port does the same strip in
-place on the typed `*tabnas.GrammarSpec`, in `stripTreeActions`. It
-drops what the library drops: an alternate action that resolves through
-`spec.Ref`, or names one of the engine's tree-building builtins, plus
-the per-alternate configuration those builtins own.
+wrapper, and both install one compiled grammar, `semver-grammar.json`,
+with the compiler's tree-building actions already dropped. TypeScript
+registers the action in the spec's `ref` map; this port sets
+`spec.Ref` on the `*tabnas.GrammarSpec` that `GrammarSpecFromJSON`
+returns, under the same `@__start__-ac` name. (When this port compiled
+the ABNF itself, it had to strip the tree-building actions in place, in
+a `stripTreeActions` of its own, because the Go `bnf.ToRecognitionSpec`
+returns data rather than an installable spec. Loading the compiled
+grammar through the engine's cross-runtime door made that unnecessary.)
 
 ### The two toolchain fixes
 
@@ -510,10 +513,9 @@ helper peeks two digits, and the letter that ends the run lexed as a
 fatal bad token at the second slot. Both are fixed upstream
 ([tabnas/bnf#33](https://github.com/tabnas/bnf/pull/33),
 [tabnas/parser#161](https://github.com/tabnas/parser/pull/161)), and
-the TypeScript plugin carries the first itself until a compiler that
-sets the flag is published. This module never needed either: there is
-no port of the fix in `semver.go`, and nothing to remove when the
-TypeScript side catches up.
+the build that compiles the grammar sets the first flag itself, so
+`semver-grammar.json` carries it whatever compiler wrote the file. This
+module never needed either fix.
 
 The TypeScript side of all of this is in
 [`../../ts/doc/concepts.md`](../../ts/doc/concepts.md); the conformance

@@ -37,8 +37,9 @@ The Rust gate staged here has been promoted and now lives in
 
   Standalone rather than an arm of `ci.yml`, because `ci.yml` calls the
   org-shared polyglot workflow and that takes no Rust input: it needs no
-  change in `tabnas/.github`. It clones the five sibling checkouts the
-  crate resolves by path (`parser`, `abnf`, `bnf`, `support`, `debug`)
+  change in `tabnas/.github`. It clones the three sibling checkouts the
+  crate resolves by path (`parser`, `support`, `debug`; the crate embeds
+  the compiled grammar, so it needs no `abnf` or `bnf`)
   and pins the toolchain to the MSRV in `rs/Cargo.toml`. Its `paths:`
   lists name everything the gate reads, the grammar file, the embedder
   and the shared fixtures included.

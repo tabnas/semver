@@ -10,9 +10,10 @@ import (
 
 // TestParseReusesInstance guards against a performance regression where the
 // convenience Parse() rebuilds the grammar on every call instead of reusing
-// a cached instance. Compiling the ABNF and installing the rule set
-// dominates a parse by orders of magnitude, so a rebuild-per-call Parse()
-// is many times slower than reusing one Make() instance.
+// a cached instance. Loading the compiled grammar and installing the rule
+// set dominates a parse by more than an order of magnitude, so a
+// rebuild-per-call Parse() is many times slower than reusing one Make()
+// instance.
 //
 // The check is machine-INDEPENDENT: it compares Parse() against instance
 // reuse on the SAME machine in the SAME run, so a slow CI box cannot make it

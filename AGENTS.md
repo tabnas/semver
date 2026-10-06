@@ -71,16 +71,20 @@ into a value with the five parts the specification names:
 { major: 1, minor: 2, patch: 3, prerelease: ['alpha', 1], build: ['build', '5'] }
 ```
 
-It is a plugin for the bare tabnas engine, built on
+It is a plugin for the bare tabnas engine, built with
 [`@tabnas/abnf`](https://github.com/tabnas/abnf): install it with
 `new Tabnas().use(Semver)` (TS), `tabnassemver.Make()` (Go) or
 `tabnas_semver::make()` (Rust). **The parser
 is the specification's grammar.** [`semver-grammar.abnf`](semver-grammar.abnf)
 at the repo root is the semver.org BNF transcribed into RFC 5234 ABNF, and
-`@tabnas/abnf` compiles it into the engine's rule set when the plugin is
-installed. No code decides what a valid version is; the grammar accepts or
-rejects, and the only code that runs during a parse is one after-close
-action that turns the accepted text into the value.
+`@tabnas/abnf` compiles it into the engine's rule set **at build time**:
+`npm run gen-grammar` writes the compiled rule set to
+[`semver-grammar.json`](semver-grammar.json), and every port installs a
+copy of that file, so no runtime loads the compiler (see
+[The compiled grammar](#the-compiled-grammar)). No code decides what a
+valid version is; the grammar accepts or rejects, and the only code that
+runs during a parse is one after-close action that turns the accepted
+text into the value.
 
 Two helpers round out the specification: `compare` (§11 precedence, build
 metadata ignored) and `format` (a value back to its string, exactly).
@@ -149,15 +153,17 @@ all of them.
 | Path | What it is |
 |---|---|
 | [`semver-grammar.abnf`](semver-grammar.abnf) | **Single source of truth**: the specification's grammar in RFC 5234 ABNF, with the two equivalence rewrites the compiler needs explained inline. |
-| [`ts/`](ts/) | **Canonical** TypeScript implementation — the `@tabnas/semver` package. Plugin in `src/semver.ts`. Peer-depends on `@tabnas/abnf` and `@tabnas/parser`. No CLI. |
-| [`go/`](go/) | Go port — `github.com/tabnas/semver/go` (`const VERSION` in `go/semver.go`). Plugin `Semver` plus `Make` / `Parse` / `Compare` / `Format`. Requires the published `github.com/tabnas/abnf/go` (no `replace` directive). |
-| [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine, `tabnas-abnf` and (through it) `tabnas-bnf` as PATH dependencies on sibling checkouts, plus `tabnas-support` and `tabnas-debug` for the tests; none is published. See [`rs/AGENTS.md`](rs/AGENTS.md). |
-| [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. |
+| [`semver-grammar.json`](semver-grammar.json) | **Generated, never edited**: the grammar compiled by `@tabnas/abnf` into the engine's serialized rule set, by [`ts/gen-grammar.js`](ts/gen-grammar.js) (`npm run gen-grammar`). Each port installs a byte-identical copy: `ts/src/semver-grammar.json`, `go/semver-grammar.json`, `rs/semver-grammar.json`. See [The compiled grammar](#the-compiled-grammar). |
+| [`ts/`](ts/) | **Canonical** TypeScript implementation — the `@tabnas/semver` package. Plugin in `src/semver.ts`. Peer-depends on `@tabnas/parser` alone; `@tabnas/abnf` is a devDependency, for `gen-grammar.js` and its staleness test. No CLI. |
+| [`go/`](go/) | Go port — `github.com/tabnas/semver/go` (`const VERSION` in `go/semver.go`). Plugin `Semver` plus `Make` / `Parse` / `Compare` / `Format`. Requires the published engine and, for its tests, `github.com/tabnas/support/go` (no `replace` directive); no ABNF compiler. |
+| [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine as a PATH dependency on a sibling checkout, plus `tabnas-support` and `tabnas-debug` for the tests; no ABNF compiler. See [`rs/AGENTS.md`](rs/AGENTS.md). |
+| [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. This is the ABNF TEXT, exported as `grammar` / `Grammar` / `GRAMMAR`; the compiled grammar is [`ts/gen-grammar.js`](ts/gen-grammar.js)'s. |
+| [`ts/gen-grammar.js`](ts/gen-grammar.js) | Compiles `semver-grammar.abnf` with `@tabnas/abnf` into `semver-grammar.json` and copies it into the three ports. `npm run gen-grammar`; deliberately NOT part of `npm run build`. |
 | [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **All three** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
 | [`test/precedence/`](test/precedence/) | Shared `compare` fixtures: an ascending chain and equal pairs. |
-| [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`; plus `docs.test.js`, the fast half of the prose gate, run by `npm test` after them. |
-| [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`. |
-| [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, `debug_model_test.rs` (composition with `tabnas-debug`), plus `embed_test.rs` (the embedded grammar against the file on disk, in all three runtimes) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
+| [`ts/test/`](ts/test/) | TS tests (`.ts`, compiled to `dist-test/`): `semver.test.ts` (values, bigint, `format`, `compare`, errors), `parity.test.ts` (the shared parse fixtures), `precedence.test.ts`, `oracle.test.ts` (the regular-expression corpus), `debug-model.test.ts` (composition with `@tabnas/debug`), `grammar-spec.test.ts` (the compiled grammar is current, every copy matches it, the runtime loads no compiler), `perf.test.ts`, `doc-examples.test.ts` (runs `// =>` assertions in README/doc fences), `version.test.ts`; plus `docs.test.js`, the fast half of the prose gate, run by `npm test` after them. |
+| [`go/*_test.go`](go/) | The same suite in Go, case for case: `semver_test.go`, `parity_test.go`, `precedence_test.go`, `oracle_test.go`, `perf_test.go`, `version_test.go`, plus `grammar_spec_test.go` (the embedded compiled grammar is the generated file; no shipped package imports the compiler). |
+| [`rs/tests/`](rs/tests/) | The same suite in Rust: `semver_test.rs`, `parity_test.rs`, `precedence_test.rs`, `oracle_test.rs`, `perf_test.rs`, `version_test.rs`, `debug_model_test.rs` (composition with `tabnas-debug`), plus `embed_test.rs` (the embedded grammar text and compiled grammar against the files on disk, in all three runtimes), `runtime_deps_test.rs` (no ABNF compiler among the crate's runtime dependencies) and `divergence_test.rs` (the Rust half of every `DIVERGENCE.md` row). |
 | [`DIVERGENCE.md`](DIVERGENCE.md) | Where a port's result differs from the canonical TypeScript, measured. One entry. |
 | [`go/clib/`](go/clib/) | `libtabnassemver`, the parser as a C shared library with the fleet's uniform five-symbol ABI. |
 | [`ts/doc/`](ts/doc/), [`go/doc/`](go/doc/) | Per-runtime Diataxis docs: `tutorial.md`, `guide.md`, `reference.md`, `concepts.md`. The Rust crate documents itself in [`rs/README.md`](rs/README.md), which is in the gated prose set and whose `rust` fences are doctests. |
@@ -166,30 +172,38 @@ all of them.
 
 ## The tabnas engine dependency
 
-This repo sits **on the ABNF compiler**, not on jsonic: `@tabnas/abnf`
-(which itself pulls in `@tabnas/bnf`, the notation-neutral compiler) and
-`@tabnas/parser`. The packages are published on npm and the Go module
-proxy; there are no `file:` paths and no `replace` directives.
+At run time this repo sits **on the engine alone**: `@tabnas/parser`,
+`github.com/tabnas/parser/go`, the `tabnas-parser` crate. The ABNF
+compiler, `@tabnas/abnf` (which itself pulls in `@tabnas/bnf`, the
+notation-neutral compiler), is a **build-time** tool here: it compiles
+`semver-grammar.abnf` into `semver-grammar.json` (see
+[The compiled grammar](#the-compiled-grammar)), and no port loads it to
+parse. The packages are published on npm and the Go module proxy; there
+are no `file:` paths and no `replace` directives.
 
-- TypeScript: `@tabnas/abnf` and `@tabnas/parser` are `peerDependencies`
-  in `ts/package.json`, each mirrored as a `"*"` devDependency.
-  `@tabnas/debug` and `@tabnas/support` are dev-only. The ranges are
-  floors, not the fleet's bare `">=0"`, at the versions `go/go.mod`
-  requires: today `@tabnas/abnf` `>=0.4.16` and `@tabnas/parser`
-  `>=0.12.4`. They move with each release, as they do in abnf, ebnf and
-  gbnf. The first floors, `>=0.4.8` and `>=0.9.1`, were the first releases
-  on which the whole toolchain agrees about a character class beside a
-  literal (see below), and abnf 0.4.8 in turn floors `@tabnas/bnf` at
-  0.1.11. Today's floors are later than both, so every release they admit
-  carries both fixes.
-- Go: `go/go.mod` `require`s `github.com/tabnas/abnf/go`,
-  `github.com/tabnas/parser/go` and `github.com/tabnas/support/go` at the
-  versions pinned there.
+- TypeScript: `@tabnas/parser` is the one `peerDependency` in
+  `ts/package.json`, mirrored as a `"*"` devDependency. `@tabnas/abnf` is
+  a `"*"` devDependency only, for `gen-grammar.js` and the test that holds
+  the committed file to it, and `@tabnas/debug` and `@tabnas/support` are
+  dev-only too. The peer range is a floor, not the fleet's bare `">=0"`,
+  at the version `go/go.mod` requires: today `@tabnas/parser` `>=0.12.8`.
+  It moves with each release, as it does in abnf, ebnf and gbnf. Until the
+  grammar was compiled at build time, `@tabnas/abnf` was a peer as well,
+  floored the same way; the first floors, abnf `>=0.4.8` and parser
+  `>=0.9.1`, were the first releases on which the whole toolchain agrees
+  about a character class beside a literal (see below).
+- Go: `go/go.mod` `require`s `github.com/tabnas/parser/go` and, for the
+  tests, `github.com/tabnas/support/go`, at the versions pinned there. No
+  ABNF compiler: nothing in the module imports one, and
+  `grammar_spec_test.go` fails if a shipped package ever depends on one.
+- Rust: the engine is the crate's one tabnas `[dependencies]` entry, and
+  `tabnas-support` and `tabnas-debug` are dev-dependencies. No ABNF
+  compiler, in any table; `rs/tests/runtime_deps_test.rs` fails if one
+  reaches a table cargo builds into the library.
 
 **The TypeScript toolchain had two defects that this plugin's oracle
 corpus found.** Both were already right in the Go port, and both are now
-fixed and published — `@tabnas/bnf` 0.1.11 and `@tabnas/parser` 0.9.1,
-which the peer floors above require:
+fixed and published, in `@tabnas/bnf` 0.1.11 and `@tabnas/parser` 0.9.1:
 
 1. `@tabnas/bnf` — character-class tokens are marked eager, so a class can
    be lexed at any lookahead slot
@@ -203,21 +217,21 @@ which the peer floors above require:
    Go engine always has. Without it an eager class
    earlier in token order steals a character an expected class needed.
 
-**The plugin does not wait for them.** `src/semver.ts` carries fix 1
-itself: after `abnfConvert` it marks every match token in the compiled
-spec `eager$`, a no-op once the emitter sets the flag. Fix 2 is not needed
-by this grammar: its three character classes and four literals are
-pairwise disjoint, so no character can be lexed two ways and token order
-cannot matter. So an isolated `npm install` against the published
-`@tabnas/bnf` 0.1.10 / `@tabnas/parser` 0.9.0 passes the whole TS suite,
-oracle corpus included, and so does the fleet layout with the fixed
-siblings linked. **The condition for deleting the port is now met**:
-`@tabnas/bnf` 0.1.11 sets the flag, and the floors above require it
-transitively, so the loop and the test that pins it (`marks every
-character-class token eager`) can go in a change of their own — kept
-here only because a release is the wrong place to remove a safety net.
-Removing it needs the oracle corpus green in both runtimes, nothing
-more.
+**The plugin does not wait for them.** Fix 1 is in the compiled grammar
+itself: `ts/gen-grammar.js` marks every match token `eager$` after
+compiling (the file writes it `@~/…/`), a no-op with today's compiler, so
+the flag ships whatever compiler generated the file; and since the
+grammar is compiled at build time, the compiler a consumer has installed,
+if any, no longer matters at all. Fix 2 is not needed by this grammar: its
+three character classes and four literals are pairwise disjoint, so no
+character can be lexed two ways and token order cannot matter.
+**The condition for deleting the port is met**: `@tabnas/bnf` 0.1.11
+and later set the flag, so the loop and the test that pins it (`marks
+every character-class token eager`) can go in a change of their own —
+kept here only because a release is the wrong place to remove a safety
+net. Removing it needs `npm run gen-grammar` to leave
+`semver-grammar.json` unchanged and the oracle corpus green in every
+runtime, nothing more.
 
 The reason bnf's change took a second engine fix to be safe is worth
 keeping in mind before copying any of this: marking every class eager
@@ -231,7 +245,7 @@ literal — which is why the port is safe here and why the whole oracle
 corpus passes with it. Do not copy the loop into a plugin whose classes
 and literals overlap. The Go module never needed either fix, and neither
 does the Rust crate: the `tabnas-bnf` emitter marks every character
-class eager, so `rs/src/lib.rs` carries no copy of the loop, and
+class eager, so its output never needed the loop either, and
 `a_letter_after_digits_lexes` in `rs/tests/semver_test.rs` pins the
 observable half (`1.0.0-01a` and `1.0.0-12a` parse). The
 same parser change also lets `@<rule>-<phase>` lifecycle hooks bind on
@@ -244,9 +258,66 @@ repo's parity fixtures
 - *Monorepo:* clone `parser`, `bnf` and `abnf` (plus `support`, `debug`)
   as siblings, build their TS halves, and link them into `node_modules`
   (the admin repo's `make link`, or `ln -s ../../<dep>/ts
-  node_modules/@tabnas/<dep>`). CI does this.
+  node_modules/@tabnas/<dep>`). CI does this. `bnf` and `abnf` are
+  for the TypeScript generator and its test; the Go module and the Rust
+  crate build and test without them.
 - *Isolated single-repo checkout:* `npm install` resolves everything from
   the registry.
+
+## The compiled grammar
+
+`semver-grammar.abnf` is compiled once, at build time, and never by the
+plugin at install:
+
+```
+semver-grammar.abnf --(npm run gen-grammar: @tabnas/abnf)--> semver-grammar.json
+                                                              |- ts/src/semver-grammar.json  imported by src/semver.ts
+                                                              |- go/semver-grammar.json      //go:embed in go/semver.go
+                                                              '- rs/semver-grammar.json      include_str! in rs/src/lib.rs
+```
+
+- **One file for three runtimes.** It is the engine's serialized
+  GrammarSpec: options and rules as plain JSON, the character classes as
+  `@~/…/` regular expressions, and no function anywhere, so every engine
+  loads it (TS `tn.grammar`, Go `GrammarSpecFromJSON`, Rust
+  `GrammarSpec::from_value`). Each port used to compile the ABNF with its
+  own compiler at install. The Rust compiler's output was this file, byte
+  for byte. The Go compiler's named the three class tokens differently
+  (`#RX___X_0031___X_0039` for `#RX___U0031__U0039`), carried a
+  `tokenOrder`, and ordered some lookahead alternatives differently, none
+  of which changes what parses: on every string of length 0 to 5 over
+  `019aZ-.+ v` (111,116 strings) the Go port returned the same value, or
+  the same error code, row, column and source, before and after the
+  switch. Go now carries the canonical token names.
+- **What it holds.** The compile is the one the plugin used to run at
+  install: `abnfConvert` with start rule and tag `semver`, then
+  `toRecognitionSpec` (no tree; see the gotchas), with every class marked
+  eager. Each port applies the plugin's own engine options (every default
+  lexer off, the hint) and its one end-of-source action at install, on
+  top of the file, exactly as it applied them on top of the compiler's
+  output.
+- **Regenerate it** with `npm run gen-grammar` from `ts/` after editing
+  `semver-grammar.abnf`, or after an `@tabnas/abnf` or `@tabnas/bnf`
+  release that changes what they emit. It writes the root file and all
+  three copies, deterministically (the same compiler writes the same
+  bytes on every machine); commit them. It is deliberately not part of
+  `npm run build`: a build that regenerated the file would make the
+  staleness test compare the compiler with itself.
+- **The tests that hold it.** `ts/test/grammar-spec.test.ts` compiles
+  again in memory and fails when the committed file is stale, checks
+  every copy, and installs the plugin in a fresh process to show that
+  neither `@tabnas/abnf` nor `@tabnas/bnf` is loaded.
+  `go/grammar_spec_test.go` holds the Go copy to the root file and runs
+  `go list -deps` over the shipped packages; `rs/tests/embed_test.rs`
+  holds every copy to it, and `rs/tests/runtime_deps_test.rs` keeps the
+  compiler out of the crate's runtime tables.
+- **Releases.** `publish.sh` runs `npm test` against the published
+  packages, so a release that follows an `@tabnas/abnf` release which
+  changes the output fails as "stale" until the file is regenerated and
+  reviewed. `gen-grammar` is NOT listed under `tabnas.release.generate`
+  in `ts/package.json`, on purpose: that hook regenerates version-derived
+  files, and this one decides what parses. (`publish.sh` notes the
+  undeclared `gen-*` script, as it does json5's `gen-suite-expected`.)
 
 ## Authority and alignment rules
 
@@ -269,6 +340,10 @@ repo's parity fixtures
    raw string early. The Rust step is skipped when `rs/src/lib.rs` is
    absent, so the embedder still runs in a checkout predating the port.
    `rs/tests/embed_test.rs` holds all three copies to the file on disk.
+   The COMPILED grammar is single-sourced the same way: one
+   `semver-grammar.json`, generated by `npm run gen-grammar` and copied
+   into every port, never edited (see
+   [The compiled grammar](#the-compiled-grammar)).
 3. The three runtimes must produce the same value for the same input.
    The parity contract is the shared grammar plus the shared
    `test/spec/*.tsv` and `test/precedence/*.tsv` fixtures, which all three
@@ -308,10 +383,11 @@ repo's parity fixtures
   from the source and splits it at the separators the grammar has just
   proven are there. That is immune to which rules the compiler keeps.
 - **The plugin asks for no parse tree at all.** `toRecognitionSpec`
-  (TypeScript, from `@tabnas/abnf`) and `stripTreeActions` (the Go
-  equivalent, in `go/semver.go`, because the Go `ToRecognitionSpec`
-  returns data rather than an installable spec) drop every AST-building
-  action the compiler emitted. The rules, the tokens and the accepted
+  (from `@tabnas/abnf`, run by `ts/gen-grammar.js`) drops every
+  AST-building action the compiler emitted before the grammar is written
+  to `semver-grammar.json`, so no port installs one. (The Go port used
+  to strip them itself, with a `stripTreeActions` of its own, because the
+  Go `ToRecognitionSpec` returns data rather than an installable spec.) The rules, the tokens and the accepted
   language are unchanged. This is not an optimisation to taste: building
   that tree is QUADRATIC in an identifier's length, because each `*`/`1*`
   repetition compiles to a per-character helper that re-appends its
@@ -352,8 +428,13 @@ repo's parity fixtures
   move with a compiler change and the two engines are not required to
   agree (the parser repo's `DIVERGENCE.md` records the general case).
   The code is the contract. Fixtures pin `ERROR:unexpected` only.
-- **The plugin compiles the grammar at install.** ~75 ms in TS, ~10 ms in
-  Go; a parse is ~100 µs. Build one instance and reuse it. The Go `Parse`
+- **Installing the plugin still costs many parses.** It no longer
+  compiles anything, but it still loads the compiled grammar and installs
+  about 150 rules: measured on a 2-CPU box, 9.8 ms in TS (against 20.5 ms
+  when it compiled the ABNF at install) and 4.3 ms in Go (3.8 ms then: the
+  Go compiler is fast on a grammar this size, and decoding the JSON costs
+  about as much), against 0.6 ms and 0.15 ms for a parse. Build one
+  instance and reuse it. The Go `Parse`
   convenience caches one behind a mutex; the TS side has no convenience
   function by design, and `perf.test.ts` pins the reuse-vs-rebuild ratio.
 
@@ -365,6 +446,7 @@ TypeScript (from `ts/`):
 npm install            # resolves @tabnas/* from the registry (or link siblings)
 npm run build          # node embed-grammar.js && tsc --build src && tsc --build test
 npm test               # `pretest` builds first, then node --test dist-test/*.test.js
+npm run gen-grammar    # after editing semver-grammar.abnf: recompile semver-grammar.json and its copies
 ```
 
 `npm run build` **embeds the grammar first** (into `src/semver.ts` and
@@ -386,9 +468,10 @@ cargo test --doc           # --all-targets does NOT include doctests, and README
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-There is nothing to install: the engine, `tabnas-abnf`, `tabnas-bnf` and
-the `tabnas-support` fixture runner are path dependencies on sibling
-checkouts, none of them published. `ci/rust/run.sh` from the repo root is
+There is nothing to install: the engine, the `tabnas-support` fixture
+runner and the `tabnas-debug` plugin are path dependencies on sibling
+checkouts. The crate needs no ABNF compiler: it embeds the compiled
+grammar. `ci/rust/run.sh` from the repo root is
 the whole gate, formatting and the lockfile check included. A debug build
 is quadratic in the length of one identifier, for a reason `rs/AGENTS.md`
 measures and records; that is why the Rust suite's long-input sizes are
@@ -434,6 +517,10 @@ What "correct" means here, in order of authority:
    build` re-embed) — never hand-edit between the `BEGIN/END EMBEDDED`
    markers in any runtime. `rs/tests/embed_test.rs` checks all three
    copies against the file and against each other.
+5. **The compiled grammar matches its source.** After the same change,
+   run `npm run gen-grammar` from `ts/` and commit `semver-grammar.json`
+   with its three copies. `ts/test/grammar-spec.test.ts` fails while it
+   is stale, and the Go and Rust suites fail while a copy differs.
 
 ## Releasing
 
@@ -768,13 +855,17 @@ named sibling repos, builds them, links them into `node_modules` (and a
 `go build ./... && go test -v ./...` here.
 
 `ci.yml` declares `deps: "parser support bnf abnf debug"`, so CI
-builds and links the sibling `main` checkouts of the grammar toolchain.
+builds and links the sibling `main` checkouts of the grammar toolchain:
+the TypeScript suite compiles the grammar again to check that
+`semver-grammar.json` is current, so it fails when the compiler on
+`main` emits something the committed file does not hold.
 The clib release workflow publishes artifacts as `libtabnassemver`, and
 the npm release workflow checks and publishes `@tabnas/semver`.
 
 [`.github/workflows/rust.yml`](.github/workflows/rust.yml) is the Rust
-gate, and it is live. It clones the five sibling checkouts the crate
-resolves by path, pins the toolchain to the MSRV in `rs/Cargo.toml`, and
+gate, and it is live. It clones the sibling checkouts the crate
+resolves by path (and `abnf` and `bnf`, which the crate no longer
+needs), pins the toolchain to the MSRV in `rs/Cargo.toml`, and
 runs `ci/rust/run.sh`, which is the same script a contributor runs
 locally.
 The prose gate, [`.github/workflows/docs.yml`](.github/workflows/docs.yml),

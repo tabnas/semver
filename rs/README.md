@@ -11,16 +11,18 @@ rules (section 11), and `format` renders one back to its string, exactly.
 The parser IS the specification's grammar.
 [`../semver-grammar.abnf`](../semver-grammar.abnf) at the repository root
 is the semver.org grammar transcribed into RFC 5234 ABNF, and
-[`tabnas-abnf`](https://github.com/tabnas/abnf) compiles it into the
-engine's rule set when the plugin is installed. No code here decides what
-a valid version is: the grammar accepts or rejects, and the only code
+[`@tabnas/abnf`](https://github.com/tabnas/abnf) compiles it into the
+engine's rule set at build time. The crate embeds that
+compiled rule set, [`../semver-grammar.json`](../semver-grammar.json),
+and depends on no ABNF compiler. No code here decides what a valid
+version is: the grammar accepts or rejects, and the only code
 that runs during a parse is the one action that turns the accepted text
 into the value.
 
 This is the Rust port of the canonical TypeScript implementation in
 [`../ts`](../ts); the TypeScript version is authoritative and this crate
-tracks it. The Go port is in [`../go`](../go). All three embed that one
-grammar file.
+tracks it. The Go port is in [`../go`](../go). All three install that
+one compiled grammar file.
 
 ## Use
 
@@ -35,9 +37,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-`parse` builds one parser on first use and reuses it. Compiling the ABNF
-and installing the rule set costs orders of magnitude more than a parse,
-so for anything but a one-off call build an instance once and keep it:
+`parse` builds one parser on first use and reuses it. Loading the
+compiled grammar and installing its rule set costs far more than a
+parse, so for anything but a one-off call build an instance once and
+keep it:
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -139,11 +142,10 @@ that is not a parsed version.
 
 ## Install
 
-Neither the engine nor the ABNF compiler is published to a registry, so
-both are consumed as **sibling checkouts**, the standard tabnas
-development model. Clone `https://github.com/tabnas/parser`,
-`https://github.com/tabnas/abnf` and `https://github.com/tabnas/bnf`
-next to this repository and point at them:
+The engine is not published to a registry, so it is consumed as a
+**sibling checkout**, the standard tabnas development model. Clone
+`https://github.com/tabnas/parser` next to this repository and point at
+it:
 
 ```toml
 [dependencies]
@@ -151,10 +153,8 @@ tabnas-semver = { path = "../semver/rs" }
 tabnas = { package = "tabnas-parser", path = "../parser/rs" }
 ```
 
-`tabnas-bnf` needs no entry of its own, because it is `tabnas-abnf` that
-depends on it, but cargo reads the whole manifest graph before it
-compiles anything, so the checkout has to be on disk. The `tabnas` entry
-is there because a crate's dependencies are not passed on to its
+The ABNF compiler is not needed: the crate carries its grammar already
+compiled. The `tabnas` entry is there because a crate's dependencies are not passed on to its
 dependents: `tabnas_semver` alone does not put `tabnas::Tabnas` or
 `tabnas::Value` in scope, and the examples above that name them would not
 resolve. Only `SemverError` is re-exported. The test suite additionally
@@ -196,7 +196,7 @@ publishes, hold all three runtimes to it.
 
 ## Build and test
 
-The engine, the ABNF compiler and the fixture runner are path
+The engine, the fixture runner and the debug plugin are path
 dependencies on sibling checkouts, so there is nothing to fetch:
 
 ```bash
