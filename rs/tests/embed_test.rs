@@ -81,3 +81,40 @@ fn all_three_runtimes_embed_the_same_text() {
         );
     }
 }
+
+// The compiled grammar is shared the same way. `npm run gen-grammar`
+// compiles `semver-grammar.abnf` at build time into
+// `semver-grammar.json` at the repository root and copies it into every
+// runtime: `rs/semver-grammar.json`, which `src/lib.rs` embeds with
+// `include_str!`, `go/semver-grammar.json` and
+// `ts/src/semver-grammar.json`. The TypeScript suite holds the generated
+// file to the compiler; this holds every copy to the generated file, so
+// the three runtimes install one compiled grammar.
+#[test]
+fn all_three_runtimes_embed_the_same_compiled_grammar() {
+    let generated = fs::read_to_string(repo_root().join("semver-grammar.json"))
+        .expect("semver-grammar.json is readable at the repository root");
+    let embedded = include_str!("../semver-grammar.json");
+    assert_eq!(
+        embedded, generated,
+        "rs/semver-grammar.json differs from semver-grammar.json: run \
+         `npm run gen-grammar` (from ts/), which writes every copy"
+    );
+    for path in [
+        repo_root().join("go").join("semver-grammar.json"),
+        repo_root()
+            .join("ts")
+            .join("src")
+            .join("semver-grammar.json"),
+    ] {
+        let copy = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{} is readable: {error}", path.display()));
+        assert_eq!(
+            copy,
+            generated,
+            "{} differs from semver-grammar.json: run `npm run gen-grammar` \
+             (from ts/), which writes every copy",
+            path.display()
+        );
+    }
+}

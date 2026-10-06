@@ -19,12 +19,12 @@ const tn = new Tabnas().use(Semver)
 ## Install the plugin and reuse the instance
 
 ```bash
-npm install @tabnas/parser @tabnas/abnf @tabnas/semver
+npm install @tabnas/parser @tabnas/semver
 ```
 
-`@tabnas/parser` is the engine and `@tabnas/abnf` the compiler that
-turns the plugin's grammar into engine rules; both are peer
-dependencies, so install them alongside. `Semver` is a plugin, not a
+`@tabnas/parser` is the engine, a peer dependency, so install it
+alongside. The plugin's grammar arrives already compiled into engine
+rules, so nothing needs an ABNF compiler at run time. `Semver` is a plugin, not a
 standalone parser: install it on a bare engine, then call `.parse()`.
 
 ```js
@@ -44,9 +44,10 @@ no options (`Semver.defaults` is `{}`) so `.use(Semver, {})` is
 accepted and changes nothing.
 
 Build the instance once and keep it, as a module-level constant.
-Installing the plugin compiles the ABNF grammar into the engine's rule
-set, which takes tens of milliseconds (roughly 75 ms, machine
-dependent); a parse takes about 100 µs, a thousand times less.
+Installing the plugin loads the compiled grammar into the engine's rule
+set, which takes several milliseconds (about 7 ms on a small 2-CPU
+machine); a parse of a short version takes about a tenth of a
+millisecond, dozens of times less.
 
 ## Validate a string without using the value
 
@@ -344,8 +345,8 @@ text; see [AGENTS.md](../../AGENTS.md#untrusted-input).
 
 ## Get the ABNF text for tooling
 
-The `grammar` export is the RFC 5234 ABNF the plugin compiles at
-install time: the repository's [`semver-grammar.abnf`](../../semver-grammar.abnf),
+The `grammar` export is the RFC 5234 ABNF the build compiles the
+plugin's rule set from: the repository's [`semver-grammar.abnf`](../../semver-grammar.abnf),
 comments included, embedded verbatim (the export carries one extra
 leading newline, from the template literal it lives in). `VERSION` is
 the package version.
@@ -365,10 +366,10 @@ productions.includes('pre-release-identifier') // => true
 
 Write it out for any tool that reads ABNF, or hand it to
 `@tabnas/abnf` yourself. `abnfConvert(grammar, { start: 'semver', tag: 'semver' })`
-is the compile step the plugin performs, before it adds its one action,
-switches every default lexer off, unbinds the engine's JSON punctuation
-tokens and refuses the empty string (the [concepts](concepts.md) page
-has the details):
+is the compile step the build performs, followed by `toRecognitionSpec`;
+at install the plugin then adds its one action, switches every default
+lexer off, unbinds the engine's JSON punctuation tokens and refuses the
+empty string (the [concepts](concepts.md) page has the details):
 
 ```js
 import { writeFileSync } from 'node:fs'

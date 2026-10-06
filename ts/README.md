@@ -4,16 +4,16 @@ A [Tabnas](https://github.com/tabnas/parser) grammar plugin that parses
 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) version
 strings into their five parts, exactly as the specification defines them.
 The parser is the specification's own grammar, compiled from ABNF by
-[`@tabnas/abnf`](https://github.com/tabnas/abnf) when the plugin is
-installed.
+[`@tabnas/abnf`](https://github.com/tabnas/abnf) at build time, so the
+plugin installs a ready rule set and needs no compiler at run time.
 
 ## Install
 
 ```bash
-npm install @tabnas/parser @tabnas/abnf @tabnas/semver
+npm install @tabnas/parser @tabnas/semver
 ```
 
-`@tabnas/parser` and `@tabnas/abnf` are peer dependencies.
+`@tabnas/parser` is a peer dependency, and the only one.
 
 ## One example
 
@@ -32,7 +32,7 @@ compare(tn.parse('1.0.0-alpha'), tn.parse('1.0.0')) // => -1
 format(tn.parse('1.2.3+sha.5114f85'))               // => '1.2.3+sha.5114f85'
 ```
 
-Build the instance once and reuse it: compiling the grammar is the
+Build the instance once and reuse it: installing the grammar is the
 expensive part.
 
 ## Documentation
@@ -52,10 +52,13 @@ For the Go port, see [`../go/README.md`](../go/README.md).
 ## Grammar
 
 The grammar is defined in the top-level
-[`semver-grammar.abnf`](../semver-grammar.abnf) and embedded into this
-implementation (and the Go port) by [`embed-grammar.js`](embed-grammar.js)
-during the build. It is also exported, as `grammar`, for tooling that
-wants the text.
+[`semver-grammar.abnf`](../semver-grammar.abnf).
+[`gen-grammar.js`](gen-grammar.js) (`npm run gen-grammar`) compiles it
+into [`semver-grammar.json`](../semver-grammar.json), the engine's rule
+set, and copies that file into this package (`src/semver-grammar.json`)
+and the Go and Rust ports; the plugin installs it.
+[`embed-grammar.js`](embed-grammar.js) embeds the ABNF text itself
+during the build, exported as `grammar` for tooling that wants it.
 
 ## License
 

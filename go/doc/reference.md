@@ -26,9 +26,10 @@ import (
 | Module | `github.com/tabnas/semver/go` |
 | Package | `tabnassemver` |
 | Engine | `github.com/tabnas/parser/go` (imported as `tabnas`) |
-| Compiler | `github.com/tabnas/abnf/go`, compiles the grammar at install time; pulls in `github.com/tabnas/bnf/go` |
+| Compiler | none: the grammar is compiled from ABNF at build time, by `@tabnas/abnf` in the TypeScript toolchain, and embedded |
 | Test-only | `github.com/tabnas/support/go`, the shared-fixture runner |
-| Grammar | [`semver-grammar.abnf`](../../semver-grammar.abnf), embedded verbatim in [`semver.go`](../semver.go) |
+| Grammar | [`semver-grammar.abnf`](../../semver-grammar.abnf), embedded verbatim in [`semver.go`](../semver.go) as text |
+| Compiled grammar | [`semver-grammar.json`](../semver-grammar.json), the engine's rule set compiled from it, embedded with `//go:embed`; the same file the TypeScript and Rust ports install |
 | Options | none (`Defaults` is an empty map) |
 
 The dependencies are required at the versions pinned in
@@ -46,8 +47,8 @@ Parses one version string. On success the value is the `map[string]any`
 described under [Value types](#value-types); on failure the value is
 `nil` and the error a `*tabnas.TabnasError` with `Code == "unexpected"`
 (see [Errors](#errors)). `Parse` uses one package-level engine, built on
-first use with `sync.Once` and guarded by a mutex, so it never recompiles
-the grammar and is safe for concurrent use.
+first use with `sync.Once` and guarded by a mutex, so it installs the
+grammar once and is safe for concurrent use.
 
 ```go
 v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
@@ -62,7 +63,7 @@ v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 
 Returns a new engine with the plugin installed: `tabnas.Make()` followed
 by `j.UseDefaults(Semver, Defaults)`. Build one and reuse it: installing
-compiles the grammar, which dominates a parse by orders of magnitude. The
+the grammar dominates a parse by more than an order of magnitude. The
 instance is **not** safe for concurrent `Parse` calls; use
 `tabnassemver.Parse` for a shared one, or one instance per goroutine.
 `Make` panics if the plugin fails to install, which cannot happen with
@@ -81,10 +82,11 @@ parse does not affect the next one on the same instance.
 The plugin function, of the engine's `tabnas.Plugin` type
 (`func(j *tabnas.Tabnas, opts map[string]any) error`). Install it with
 `j.Use(Semver)` or `j.UseDefaults(Semver, Defaults)`; the options map is
-ignored, as there are no options. Installing compiles `Grammar` with
-`abnf.Abnf(grammarText, &abnf.AbnfConvertOptions{Start: "semver", Tag: "semver"})`,
-strips the compiler's tree-building actions out of the spec so that no
-parse tree is built, attaches the plugin's one action, and applies
+ignored, as there are no options. Installing loads the embedded compiled
+grammar with `tabnas.GrammarSpecFromJSON`. The build compiled it from
+`Grammar` with `@tabnas/abnf` (start rule and group tag `semver`) and
+stripped the compiler's tree-building actions out of it, so no parse
+tree is built. Install attaches the plugin's one action, and applies
 the [lexer configuration](#tokens-and-lexer-configuration) and the
 `unexpected` [hint](#errors), all through one `j.Grammar(spec)` call.
 That one action is an after-close hook on `__start__`, the compiler's
@@ -93,10 +95,10 @@ end-of-source wrapper, which builds the value from the accepted text
 [concepts](concepts.md#why-the-value-is-built-from-the-accepted-text)).
 
 It is idempotent: the first call sets the decoration `semver-init` on the
-instance, and a later call returns `nil` without compiling again. It
-returns an error only when the grammar fails to compile
-(`semver: grammar failed to compile: ...`) or the action cannot be
-attached, neither of which is reachable with the embedded grammar.
+instance, and a later call returns `nil` without installing again. It
+returns an error only when the compiled grammar fails to load
+(`semver: the compiled grammar failed to load: ...`) or to install,
+neither of which is reachable with the embedded grammar.
 
 ```go
 j := tabnas.Make()
@@ -164,10 +166,10 @@ the plugin has no options. It mirrors `Semver.defaults` in TypeScript.
 
 ### `const Grammar`
 
-The grammar as ABNF text, the same string the plugin compiles, which is
+The grammar as ABNF text, which is
 [`semver-grammar.abnf`](../../semver-grammar.abnf) verbatim, comments
-included. Exported for tooling; it is the constant the plugin itself
-compiles (`Grammar = grammarText`), not a second copy.
+included: the source the installed rule set was compiled from.
+Exported for tooling; the plugin does not read it.
 
 ### `const VERSION`
 
@@ -301,9 +303,10 @@ token and a character the grammar does not name has no matcher at all.
 
 **Four fixed tokens**, one per literal, named by the compiler in
 allocation order, and **three character-class tokens**, one per `%x`
-range, as anchored regular expressions on `spec.Options.Match.Token`,
-each of the three marked eager in `spec.Options.Match.TokenEager` so it
-can be lexed at any lookahead slot (fixed tokens carry no such flag):
+range, as anchored regular expressions (`options.match.token` in the
+compiled grammar, each written `@~/…/`), each of the three marked eager
+so it can be lexed at any lookahead slot (fixed tokens carry no such
+flag):
 
 | Token | Source | Role |
 |---|---|---|
@@ -311,17 +314,18 @@ can be lexed at any lookahead slot (fixed tokens carry no such flag):
 | `#T` | `.` | separator |
 | `#T1` | `-` | opens the pre-release; also an identifier character |
 | `#T2` | `+` | opens the build metadata |
-| `#RX___X_0031___X_0039` | `^[\x{0031}-\x{0039}]` | `positive-digit` (`1`–`9`) |
-| `#RX___X_0041___X_005A` | `^[\x{0041}-\x{005a}]` | `letter` (`A`–`Z`) |
-| `#RX___X_0061___X_007A` | `^[\x{0061}-\x{007a}]` | `letter` (`a`–`z`) |
+| `#RX___U0031__U0039` | `^[\x{0031}-\x{0039}]` | `positive-digit` (`1`–`9`) |
+| `#RX___U0041__U005A` | `^[\x{0041}-\x{005a}]` | `letter` (`A`–`Z`) |
+| `#RX___U0061__U007A` | `^[\x{0061}-\x{007a}]` | `letter` (`a`–`z`) |
 
-The names appear in diagnostics (`token.name` and `expected` below); the
-TypeScript engine spells the class names differently
-(`#RX___U0031__U0039` for the first of these). The seven are pairwise
-disjoint, so no character can be lexed two ways.
+The names appear in diagnostics (`token.name` and `expected` below), and
+they are the TypeScript and Rust names: all three install one compiled
+grammar. (When this port compiled the ABNF itself, the Go compiler named
+the classes differently, `#RX___X_0031___X_0039` for the first.) The
+seven are pairwise disjoint, so no character can be lexed two ways.
 
-**Everything else is off.** On the compiled spec's options the plugin
-sets:
+**Everything else is off.** On the compiled grammar's options the plugin
+sets, at install:
 
 | Option | Value | Effect |
 |---|---|---|
@@ -401,8 +405,8 @@ shape `JSON.stringify` gives in TypeScript:
 {"status":"failure","code":"unexpected","message":"unexpected character(s): v",
  "hint":"...","row":1,"col":1,"pos":0,"len":1,"rule":"valid-semver",
  "ruleStack":["__start__","semver","valid-semver"],
- "token":{"name":"#RX___X_0061___X_007A","src":"v"},
- "expected":["#0","#RX___X_0031___X_0039"],"src":"v1.2.3",
+ "token":{"name":"#RX___U0061__U007A","src":"v"},
+ "expected":["#0","#RX___U0031__U0039"],"src":"v1.2.3",
  "plugins":["Semver"],"version":"0.9.0"}
 ```
 
@@ -438,12 +442,13 @@ at the `1`. Compare on `Code`, not on `Col`.
 
 ## Performance
 
-Installing the plugin compiles the ABNF into the engine's rule set
-(about 10 ms in Go) and a parse of a typical version takes well under
-100 µs. Build one engine and reuse it, or call `tabnassemver.Parse`,
+Installing the plugin loads the compiled grammar into the engine's rule
+set (about 4 ms in Go on a small 2-CPU machine, about what compiling
+the ABNF at install cost) and a parse of a typical version takes a tenth
+of a millisecond or less. Build one engine and reuse it, or call `tabnassemver.Parse`,
 which does that for you; `perf_test.go` pins `Parse` to within a small
 factor of instance reuse, so a regression that rebuilt the grammar per
-call fails the suite. Compiling happens once per instance, never per
+call fails the suite. Installing happens once per instance, never per
 parse.
 
 A parse costs time and memory linear in the length of the string, and a

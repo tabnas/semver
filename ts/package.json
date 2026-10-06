@@ -28,6 +28,7 @@
     "pretest-watch": "npm run build",
     "test-watch": "node --test --watch dist-test/semver.test.js",
     "embed": "node embed-grammar.js",
+    "gen-grammar": "node gen-grammar.js",
     "watch": "tsc --build src test -w",
     "build": "node embed-grammar.js && tsc --build src && tsc --build test",
     "clean": "rm -rf node_modules dist dist-test yarn.lock package-lock.json",
@@ -47,7 +48,6 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@tabnas/abnf": ">=0.4.16",
     "@tabnas/parser": ">=0.12.8"
   },
   "devDependencies": {

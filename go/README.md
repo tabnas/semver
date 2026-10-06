@@ -4,8 +4,8 @@ A tabnas grammar plugin that parses
 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html) version
 strings into Go values, exactly as the specification defines them. The
 parser is the specification's own grammar, compiled from ABNF by
-[`github.com/tabnas/abnf/go`](https://github.com/tabnas/abnf) when the
-plugin is installed.
+[`@tabnas/abnf`](https://github.com/tabnas/abnf) at build time. The
+module embeds the compiled rule set and imports no compiler.
 
 ## Install
 
@@ -57,10 +57,14 @@ For the canonical TypeScript implementation, see
 ## Grammar
 
 The grammar is defined once in the top-level
-[`semver-grammar.abnf`](../semver-grammar.abnf) and embedded into this Go
-source ([`semver.go`](semver.go)) and the TypeScript source during the
-build. Edit the grammar there, not in the generated source. It is also
-exported, as `Grammar`, for tooling that wants the text.
+[`semver-grammar.abnf`](../semver-grammar.abnf). The TypeScript build
+compiles it into [`semver-grammar.json`](../semver-grammar.json), the
+engine's rule set, and copies that file here
+([`semver-grammar.json`](semver-grammar.json), embedded with
+`//go:embed`); the plugin installs it. [`semver.go`](semver.go) embeds
+the ABNF text as well, and exports it, as `Grammar`, for
+tooling that wants it. Edit the grammar in the top-level file, never in
+a generated copy, and run `npm run gen-grammar` from `../ts`.
 
 ## C library
 

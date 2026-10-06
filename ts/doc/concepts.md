@@ -17,17 +17,21 @@ four pieces:
   into the engine's rule set without knowing which notation it was
   written in;
 - the **ABNF front end** (`@tabnas/abnf`), which reads RFC 5234 ABNF and
-  drives that compiler; the plugin calls its `abnfConvert` and
-  `attachActions`;
-- **this plugin** (`@tabnas/semver`), the grammar text, one semantic
-  action, and a set of engine options.
+  drives that compiler; the package's build calls its `abnfConvert` and
+  `toRecognitionSpec`, so these two are build tools here, never loaded
+  to parse;
+- **this plugin** (`@tabnas/semver`), the grammar text, the rule set
+  compiled from it (`semver-grammar.json`), one semantic action, and a
+  set of engine options.
 
-Install is where the work happens. `new Tabnas().use(Semver)` compiles
-the ABNF into a rule set (about 75 ms), attaches the action, sets the
-options on the compiled spec and hands the whole thing to the engine in
-one `tn.grammar(spec)` call, so grammar and options arrive together. A
-parse afterwards costs about 100 µs, which is why every document here
-says to build one instance and reuse it. The instance keeps no state
+The compile happens once, at build time: `npm run gen-grammar` runs the ABNF front end over the grammar and writes the
+rule set to `semver-grammar.json`, which ships in the package (the Go
+and Rust ports install a copy of the same file). Install takes that
+compiled spec, attaches the action, sets the options on it, and hands the
+whole thing to the engine in one `tn.grammar(spec)` call, so grammar and
+options arrive together; it loads no compiler. Install still costs
+several milliseconds and a short parse about a tenth of one, which is
+why every document here says to build one instance and reuse it. The instance keeps no state
 between parses, and `perf.test.ts` pins the reuse-versus-rebuild ratio.
 
 ## The grammar is the parser
@@ -135,11 +139,12 @@ tree would be coupled to that detail.
 
 ## Why the value is built from the accepted text
 
-The plugin asks for no parse tree. `toRecognitionSpec` (`@tabnas/bnf`'s,
-re-exported by `@tabnas/abnf`) takes the converted spec and gives back
-the same 150 rules over the same seven tokens with every AST-building
-action dropped: 1,567 of the 1,608 alternatives carry one on the way out
-of the compiler, and none do on the way into the engine. The rules, the
+The plugin asks for no parse tree. At build time,
+`toRecognitionSpec` (`@tabnas/bnf`'s, re-exported by `@tabnas/abnf`)
+takes the converted spec and gives back the same 150 rules over the same
+seven tokens with every AST-building action dropped: 1,567 of the 1,608
+alternatives carry one on the way out of the compiler, and none do in
+`semver-grammar.json` or on the way into the engine. The rules, the
 tokens and the accepted language are untouched; what goes is the
 `{rule, src, kids}` node each rule would otherwise leave behind.
 
@@ -390,11 +395,11 @@ error details.
 
 ## Relationship to the Go port
 
-The plugin ships in two implementations built from the one grammar:
-`embed-grammar.js` copies `semver-grammar.abnf` verbatim into both
-`src/semver.ts` and `go/semver.go`, and the Go port compiles it with
-`github.com/tabnas/abnf/go` at install, sets the same engine options,
-and runs the same shared fixtures and the same corpus with the same
+The plugin ships in two implementations built from the one grammar (and
+a Rust crate, a third): `embed-grammar.js` copies `semver-grammar.abnf`
+verbatim into both `src/semver.ts` and `go/semver.go`, and the Go port
+installs the same compiled `semver-grammar.json` this side does, sets
+the same engine options, and runs the same shared fixtures and the same corpus with the same
 pinned census and hash. This TypeScript version is canonical: when the
 two disagree on parse behaviour, Go changes to match, unless Go has
 exposed a TypeScript defect, in which case TypeScript is fixed first,
@@ -421,17 +426,14 @@ tokens eager, so a class can be lexed at any lookahead slot
 `@tabnas/parser` lexer now tries the match tokens a rule expects at a
 slot before the eager ones it does not
 ([tabnas/parser#161](https://github.com/tabnas/parser/pull/161)). The
-plugin carries the first itself: after compiling, it sets `eager$` on
-every class token; the published emitter leaves the flag unset, so there
-the loop is what makes the difference, and it is a no-op once the
-emitter sets it. The second lives in the engine, and this grammar does
-not need it: its three classes and four literals are pairwise disjoint,
-so no character can be cut two ways and the order the lexer tries
-tokens in cannot matter. So an isolated `npm install` against the
-published `@tabnas/bnf` 0.1.10 and `@tabnas/parser` 0.9.0 passes the
-whole suite, oracle corpus included. Without the port it rejected
+compiled grammar carries the first itself: after compiling, the build
+sets `eager$` on every class token, and `semver-grammar.json` records it
+(`@~/…/`), so the flag ships whichever emitter generated the file. It
+is a no-op with today's emitter, which sets it. The second lives in the
+engine, and this grammar does not need it: its three classes and four
+literals are pairwise disjoint, so no character can be cut two ways and
+the order the lexer tries tokens in cannot matter. Without the port the
+plugin rejected
 strings such as `1.0.0-01a` and `1.0.0-12a`: the `*digit` helper peeks
 two digits, and the letter that ends the run lexed as a fatal bad token
-at the second slot. The fleet layout, with sibling checkouts linked into
-`node_modules`, gets the same behaviour from the fixed toolchain, and
-the Go module never needed either fix.
+at the second slot. The Go module never needed either fix.

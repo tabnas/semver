@@ -31,16 +31,15 @@
 use std::time::{Duration, Instant};
 
 use tabnas::Tabnas;
-use tabnas_abnf::{abnf_convert, to_recognition_spec, AbnfConvertOptions};
 
 const SRC: &str = "1.2.3-alpha.1+build.5";
 
 /// Iterations in each half of the reuse comparison. Small enough that
 /// the unoptimised profile stays quick, large enough to average out
-/// scheduler noise: one rebuild compiles the whole ABNF and installs the
-/// rule set, which is three orders of magnitude more than a parse, so
-/// the margin here is never close. Ten rebuilds cost about ten seconds
-/// in a debug build, and thirty cost thirty for no more confidence.
+/// scheduler noise: one rebuild loads the compiled grammar and installs
+/// its whole rule set, which costs far more than a parse, so the margin
+/// here is never close. Thirty rebuilds would cost three times ten for no
+/// more confidence.
 const N: usize = 10;
 
 /// The ratio instance reuse has to beat. The real margin is orders of
@@ -84,11 +83,11 @@ fn time_one(parser: &Tabnas, src: &str) -> Duration {
 fn the_cost_model_holds() {
     // --- 1. Instance reuse against rebuild-per-parse ---------------
     //
-    // Compiling the ABNF and installing the rule set dominates a parse,
-    // so a caller must build ONE instance and reuse it. The crate's own
-    // `parse` does that behind a `OnceLock`; a change that rebuilds per
-    // parse, or a convenience entry point that forgets to cache, is
-    // caught here.
+    // Loading the compiled grammar and installing its rule set dominates
+    // a parse, so a caller must build ONE instance and reuse it. The
+    // crate's own `parse` does that behind a `OnceLock`; a change that
+    // rebuilds per parse, or a convenience entry point that forgets to
+    // cache, is caught here.
     for _ in 0..3 {
         tabnas_semver::make().parse(SRC).expect("parses");
     }
@@ -111,7 +110,7 @@ fn the_cost_model_holds() {
     assert!(
         reuse * REUSE_WANT < rebuild,
         "reuse {reuse:?} is not {REUSE_WANT}x cheaper than rebuild {rebuild:?}; \
-         the grammar is no longer compiled at install, or `make` became free"
+         the grammar is no longer installed per instance, or `make` became free"
     );
     assert!(
         convenience * REUSE_WANT < rebuild,
@@ -179,22 +178,24 @@ fn the_cost_model_holds() {
 // plainly: the document the plugin installs carries NO tree-building
 // action.
 //
-// This reproduces the two compiler calls `semver` makes, because the
-// engine publishes no way to read an installed rule's actions back. So
-// it proves the pipeline yields a clean document for THIS grammar,
-// rather than that `src/lib.rs` still runs it. It costs nothing, holds
-// no timer and cannot disturb the measurements above, so it stays a test
-// of its own.
+// That document is the compiled grammar the crate embeds,
+// `semver-grammar.json`, which `src/lib.rs` installs as it is, adding
+// only options and its one end-of-source hook. So this reads exactly
+// what is installed. (It used to repeat the two compiler calls the
+// plugin made at install, because the engine publishes no way to read an
+// installed rule's actions back.) It costs nothing, holds no timer and
+// cannot disturb the measurements above, so it stays a test of its own.
 #[test]
 fn the_recognition_document_carries_no_tree_builders() {
-    let convert = AbnfConvertOptions {
-        start: Some("semver".to_string()),
-        tag: Some("semver".to_string()),
-        ..AbnfConvertOptions::default()
-    };
-    let spec = abnf_convert(tabnas_semver::GRAMMAR, Some(&convert)).expect("the grammar compiles");
-    let document = to_recognition_spec(&spec).expect("a recognition document");
-    let text = document.to_string();
+    let text = include_str!("../semver-grammar.json");
+    let document: serde_json::Value =
+        serde_json::from_str(text).expect("the compiled grammar is JSON");
+    assert!(
+        document
+            .get("rule")
+            .is_some_and(serde_json::Value::is_object),
+        "the compiled grammar has rules"
+    );
     for builder in [
         "@node$",
         "@capture$",

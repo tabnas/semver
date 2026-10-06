@@ -10,21 +10,22 @@ see the [how-to guide](guide.md); for how it works and why see
 ## Package
 
 ```bash
-npm install @tabnas/parser @tabnas/abnf @tabnas/semver
+npm install @tabnas/parser @tabnas/semver
 ```
 
 | | |
 |---|---|
 | Package | `@tabnas/semver` |
 | Module type | CommonJS (`main: dist/semver.js`, types `dist/semver.d.ts`) |
-| Peer deps | `@tabnas/parser` >= 0, `@tabnas/abnf` >= 0 |
+| Peer deps | `@tabnas/parser` >= 0.12.8 |
 | Engine | `@tabnas/parser` (Tabnas) |
-| Underlying compiler | `@tabnas/abnf` (RFC 5234 ABNF to engine rules, over `@tabnas/bnf`) |
+| Compiled grammar | `src/semver-grammar.json`, the engine's rule set, generated from `semver-grammar.abnf` by `@tabnas/abnf` (over `@tabnas/bnf`) at build time |
 | Node | >= 24 |
 | CLI | none |
 
-The grammar is compiled from ABNF when the plugin is installed, not at
-build time: `@tabnas/abnf` must be resolvable at runtime.
+The build compiles the grammar from ABNF, not the plugin's install: the
+package ships the compiled rule set, and nothing loads `@tabnas/abnf` or
+`@tabnas/bnf` at run time, or needs them at all.
 
 ## Exports
 
@@ -33,7 +34,7 @@ build time: `@tabnas/abnf` must be resolvable at runtime.
 | `Semver` | `Plugin` | The plugin function. Register with `engine.use(Semver)`. |
 | `compare` | `(a: Version, b: Version) => -1 \| 0 \| 1` | Precedence per specification section 11. See [compare](#compare). |
 | `format` | `(v: Version) => string` | A value back to its version string. See [format](#format). |
-| `grammar` | `string` | The ABNF text the plugin compiles. See [grammar](#grammar). |
+| `grammar` | `string` | The ABNF text the build compiles the plugin's rule set from. See [grammar](#grammar). |
 | `VERSION` | `string` | This package's version, always equal to the `version` field of `ts/package.json`. |
 | `Version` | type | The parse result (see [The value](#the-value)). |
 | `PrereleaseIdentifier` | type | `string \| SemverNumber`, one pre-release identifier. |
@@ -76,16 +77,16 @@ tn.parse('1.2.3-alpha.1+build.5') // => { major: 1, minor: 2, patch: 3, prerelea
 
 Registers and immediately applies the plugin. Returns the engine, so
 registrations chain. `options` is optional and unused: the plugin
-reads no option (see [Options](#options)). Installing compiles the
-embedded ABNF (`grammar`) with `@tabnas/abnf` (start rule `semver`, group tag
-`semver`) into the engine's rule set, strips the compiler's
-tree-building actions out of it with `toRecognitionSpec`, so no parse
-tree is built, attaches the one semantic action (an after-close hook on
+reads no option (see [Options](#options)). Installing loads the
+compiled grammar, which the build made from the ABNF (`grammar`) with
+`@tabnas/abnf` (start rule `semver`, group tag `semver`) and stripped of
+the compiler's tree-building actions with `toRecognitionSpec`, so no
+parse tree is built. It attaches the one semantic action (an after-close hook on
 `__start__`, the compiler's end-of-source wrapper, which builds the
 `Version` from the accepted text; see
 [concepts](concepts.md#why-the-value-is-built-from-the-accepted-text)),
 applies the lexer settings under [Tokens](#tokens), and sets the `hint`
-under [Errors](#errors). Compiling is the expensive step; build one
+under [Errors](#errors). Installing is the expensive step; build one
 instance and reuse it (see [Performance](#performance)).
 
 ### `engine.parse(src)`
@@ -251,12 +252,11 @@ const grammar: string
 ```
 
 The text of [`semver-grammar.abnf`](../../semver-grammar.abnf),
-comments included, exactly as the plugin compiles it: the embedded copy
-is the file's content preceded by one newline (`grammar === '\n' +
-file`). It is exported for tooling (documentation, railroad diagrams, a
-second compiler); it is a plain string constant, not a hook: the plugin
-compiles the same embedded literal and reads nothing back from the
-export.
+comments included: the embedded copy is the file's content preceded by
+one newline (`grammar === '\n' + file`). It is exported for tooling
+(documentation, railroad diagrams, a second compiler); it is a plain
+string constant, not a hook. The plugin installs the rule set the build
+compiled from the same file, and reads nothing back from the export.
 
 ```js
 import { grammar, VERSION } from '@tabnas/semver'
@@ -337,13 +337,13 @@ Rejected, every one with error code `unexpected`:
 The shared fixtures under [`test/spec/`](../../test/spec/) list many
 more of each kind.
 
-Note: the published `@tabnas/bnf` (0.1.10) does not yet mark
-character-class tokens eager, which is what lets the letter in
-`1.0.0-01a` or `1.0.0-12a` (digits then a non-digit in a pre-release
-identifier) be lexed after a digit run. The plugin sets the flag itself
-after compiling, so an isolated `npm install` from the registry accepts
-them as the grammar says; the upstream fixes and the reason the port is
-enough for this grammar are in
+Note: every character-class token in the compiled grammar is marked
+eager, which is what lets the letter in `1.0.0-01a` or `1.0.0-12a`
+(digits then a non-digit in a pre-release identifier) be lexed after a
+digit run. `@tabnas/bnf` 0.1.10 did not set the flag; the build sets it
+itself after compiling, so the shipped grammar accepts them as the
+grammar says whatever compiler made it. The upstream fixes and the
+reason the port is enough for this grammar are in
 [concepts](concepts.md#a-note-on-two-toolchain-fixes) and in
 [`AGENTS.md`](../../AGENTS.md), "The tabnas engine dependency".
 
@@ -494,11 +494,12 @@ for an error production) is in
 
 ## Performance
 
-Installing the plugin compiles the ABNF into the engine's rule set (150
-rules): roughly 50–75 ms on a typical machine. A parse on an installed
-engine is on the order of 100 µs. The two differ by roughly three
-orders of magnitude, so build one instance (at module load, say) and
-reuse it for every parse; the instance holds no per-parse state. There
+Installing the plugin loads the compiled grammar into the engine's rule
+set (150 rules): about 7 ms on a small 2-CPU machine, against about
+13 ms when the plugin compiled the ABNF at install. A parse of a short
+version on an installed engine is about a tenth of a millisecond there.
+The two differ by well over an order of magnitude, so build one
+instance (at module load, say) and reuse it for every parse; the instance holds no per-parse state. There
 is no module-level cached instance and no convenience `parse()` in this
 package; the engine is yours to build and keep.
 

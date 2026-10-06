@@ -29,6 +29,6 @@ fn spec() {
     //
     // One instance for every row: the plugin has no options and keeps no
     // per-parse state on the instance, so nothing can leak between rows,
-    // and compiling the grammar per row would only make the suite slow.
+    // and installing the grammar per row would only make the suite slow.
     Runner::new(parse_shared).dir(spec_dir());
 }

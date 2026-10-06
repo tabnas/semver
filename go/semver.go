@@ -5,11 +5,12 @@
 //
 // The parser IS the specification's grammar: semver-grammar.abnf at the
 // repository root (embedded below) is the semver.org BNF transcribed into
-// RFC 5234 ABNF, and github.com/tabnas/abnf/go compiles it into the
-// engine's rule set when the plugin is installed. Nothing here decides
-// what a valid version is — the grammar accepts or rejects — and the only
-// code that runs during a parse is the one action that turns the accepted
-// text into the result value.
+// RFC 5234 ABNF. @tabnas/abnf compiles it into the engine's rule set at
+// build time, and the plugin installs that compiled rule set
+// (semver-grammar.json, embedded) without loading any compiler: this
+// module imports none. Nothing here decides what a valid version is — the
+// grammar accepts or rejects — and the only code that runs during a parse
+// is the one action that turns the accepted text into the result value.
 //
 //	v, err := tabnassemver.Parse("1.2.3-alpha.1+build.5")
 //	// map[string]any{
@@ -26,6 +27,7 @@
 package tabnassemver
 
 import (
+	_ "embed"
 	"errors"
 	"fmt"
 	"math"
@@ -34,9 +36,17 @@ import (
 	"strings"
 	"sync"
 
-	abnf "github.com/tabnas/abnf/go"
 	tabnas "github.com/tabnas/parser/go"
 )
+
+// grammarSpec is the compiled grammar: semver-grammar.json, the engine's
+// serialized rule set, generated from semver-grammar.abnf at the
+// repository root by `npm run gen-grammar` (ts/gen-grammar.js) and copied
+// here byte for byte. Never edit it; grammar_spec_test.go holds it to the
+// generated file.
+//
+//go:embed semver-grammar.json
+var grammarSpec []byte
 
 // VERSION is this module's version. It MUST equal ts/package.json
 // "version": the release orchestrator rewrites both, and
@@ -51,10 +61,12 @@ const grammarText = `
 ;   (section "Backus–Naur Form Grammar for Valid SemVer Versions")
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
-; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
-; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
-; edit the copies).
+; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at BUILD time:
+; "npm run gen-grammar" (from ts/) writes semver-grammar.json beside this
+; file and a copy of it into each runtime, which installs that compiled
+; grammar and loads no compiler. ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs also embed this text verbatim, as the exported grammar
+; ("npm run embed" copies it there). Never edit any copy.
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is
@@ -178,7 +190,8 @@ letter = %x41-5A / %x61-7A
 
 // --- END EMBEDDED semver-grammar.abnf ---
 
-// Grammar is the grammar as ABNF text — the same text the plugin compiles.
+// Grammar is the grammar as ABNF text — the source semver-grammar.json is
+// compiled from.
 const Grammar = grammarText
 
 // Defaults holds the default plugin options. There are none yet; the map
@@ -200,62 +213,61 @@ const MaxSafeInteger = 1<<53 - 1
 // or use Make, which does exactly that.
 func Semver(j *tabnas.Tabnas, _ map[string]any) error {
 	// Guard against re-invocation on the same instance: the grammar is
-	// stateless, but compiling and installing it twice is wasted work.
+	// stateless, but loading and installing it twice is wasted work.
 	if j.Decoration("semver-init") != nil {
 		return nil
 	}
 	j.Decorate("semver-init", true)
 
-	// Compile the specification's grammar into an engine rule set. The
-	// start rule is `semver`, a pure alias of the specification's
-	// `valid-semver`; see the TS source for why the one hook hangs on an
-	// unhyphenated rule name.
-	spec, err := abnf.Abnf(grammarText, &abnf.AbnfConvertOptions{
-		Start: "semver", Tag: "semver",
-	})
+	// The specification's grammar, compiled. semver-grammar.json is the
+	// engine's serialized rule set, which `npm run gen-grammar` compiles
+	// from semver-grammar.abnf with @tabnas/abnf at BUILD time and copies
+	// here, so installing the plugin runs no compiler. It is the same file
+	// the TypeScript and Rust ports install: the canonical compiler's
+	// output, loaded through the engine's cross-runtime door. The start
+	// rule is `semver`, a pure alias of the specification's
+	// `valid-semver`, and the compiler's tree-building actions are already
+	// gone (bnf's recognition mode): building the {rule, src, kids} tree
+	// is QUADRATIC in an identifier's length here, because each `*`/`1*`
+	// repetition compiles to a per-character helper that re-appends its
+	// child's src and re-copies its kids at every nesting level, and the
+	// plugin never reads it — the action below builds the value from the
+	// accepted text. See ts/src/semver.ts and AGENTS.md.
+	spec, err := tabnas.GrammarSpecFromJSON(grammarSpec)
 	if err != nil {
-		return fmt.Errorf("semver: grammar failed to compile: %w", err)
+		return fmt.Errorf("semver: the compiled grammar failed to load: %w", err)
+	}
+	opt := spec.OptionsMap
+	if opt == nil {
+		return errors.New("semver: the compiled grammar has no options")
 	}
 
-	// ... and then throw the tree away. Building the compiler's
-	// {rule, src, kids} tree is QUADRATIC in an identifier's length here:
-	// each `*`/`1*` repetition compiles to a per-character helper that
-	// re-appends its child's src and re-copies its kids at every nesting
-	// level, so `1.0.0-` + 16,000 letters cost 7.2 s and 9.1 GB, and
-	// 32,000 was killed by the OOM killer. The plugin never reads that
-	// tree — the action below builds the value from the accepted text —
-	// so nothing is lost.
-	//
-	// This is what @tabnas/bnf's recognition mode does (TS calls the
-	// library's toRecognitionSpec, which returns an installable spec);
-	// the Go ToRecognitionSpec returns serialisable data rather than a
-	// *GrammarSpec, so the same strip is done here on the typed spec.
-	stripTreeActions(spec)
-
 	// The single semantic action, on the compiler's end-of-source wrapper
-	// — the rule abnf.Abnf names in Options.Rule.Start, normally
-	// `__start__` (it numbers the name only if the grammar declares one
-	// itself, which this one does not). That rule closes on `#ZZ` and
-	// nothing else, so it closes exactly when the whole source has been
-	// accepted: ctx.Src is then the accepted text, byte for byte — with
-	// every default lexer off (below) nothing was skipped on the way in —
-	// and it is the same string the discarded tree's `src` used to hold.
-	// Its node is what Parse returns.
+	// — the rule the compiled grammar names in options.rule.start,
+	// normally `__start__` (the compiler numbers the name only if the
+	// grammar declares one itself, which this one does not). That rule
+	// closes on `#ZZ` and nothing else, so it closes exactly when the
+	// whole source has been accepted: ctx.Src is then the accepted text,
+	// byte for byte — with every default lexer off (below) nothing was
+	// skipped on the way in. Its node is what Parse returns. The engine
+	// wires a `@<rule>-<phase>` ref as that rule's state action when the
+	// rule is installed, which is the form abnf.AttachActions gave the
+	// same hook.
 	//
 	// The wrapper, not `semver`: `semver` closes as soon as a VERSION has
 	// been read, which for "1.2.3f" happens before the engine discovers
 	// the trailing `f`, and ctx.Src there is the whole input, `f` and all.
 	startRule := "__start__"
-	if spec.Options != nil && spec.Options.Rule != nil && spec.Options.Rule.Start != "" {
-		startRule = spec.Options.Rule.Start
+	if rule, ok := opt["rule"].(map[string]any); ok {
+		if start, ok := rule["start"].(string); ok && start != "" {
+			startRule = start
+		}
 	}
-	err = abnf.AttachActions(spec, abnf.ActionsMap{
-		"@" + startRule + ":ac": {func(r *tabnas.Rule, ctx *tabnas.Context) {
-			r.Node = fromText(ctx.Src)
-		}},
-	})
-	if err != nil {
-		return fmt.Errorf("semver: %w", err)
+	spec.Ref = map[tabnas.FuncRef]any{
+		tabnas.FuncRef("@" + startRule + "-ac"): tabnas.StateAction(
+			func(r *tabnas.Rule, ctx *tabnas.Context) {
+				r.Node = fromText(ctx.Src)
+			}),
 	}
 
 	// The compiled spec brings its own tokens (`.`, `-`, `+`, `0` and the
@@ -264,36 +276,34 @@ func Semver(j *tabnas.Tabnas, _ map[string]any) error {
 	// a blank, a newline, a `v` prefix, a quote, a `#` — has no matcher and
 	// is rejected as `unexpected` rather than skipped as whitespace or a
 	// comment. The engine's default punctuation tokens go too: they are
-	// JSON's, not semver's.
-	off := false
-	opt := spec.Options
-	if opt == nil {
-		opt = &tabnas.Options{}
-	}
-	if opt.Fixed == nil {
-		opt.Fixed = &tabnas.FixedOptions{}
-	}
-	if opt.Fixed.Token == nil {
-		opt.Fixed.Token = map[string]*string{}
+	// JSON's, not semver's. Every key is replaced rather than merged, as
+	// the TypeScript plugin's object spread replaces it; only fixed.token
+	// keeps what the compiled grammar put there.
+	token := map[string]any{}
+	if fixed, ok := opt["fixed"].(map[string]any); ok {
+		if compiled, ok := fixed["token"].(map[string]any); ok {
+			for name, src := range compiled {
+				token[name] = src
+			}
+		}
 	}
 	for _, name := range []string{"#OB", "#CB", "#OS", "#CS", "#CL", "#CA"} {
-		opt.Fixed.Token[name] = nil
+		token[name] = nil
 	}
-	opt.Space = &tabnas.SpaceOptions{Lex: &off}
-	opt.Line = &tabnas.LineOptions{Lex: &off}
-	opt.Comment = &tabnas.CommentOptions{Lex: &off}
-	opt.String = &tabnas.StringOptions{Lex: &off}
-	opt.Number = &tabnas.NumberOptions{Lex: &off}
-	opt.Text = &tabnas.TextOptions{Lex: &off}
-	opt.Value = &tabnas.ValueOptions{Lex: &off}
+	opt["fixed"] = map[string]any{"token": token}
+	for _, lexer := range []string{
+		"space", "line", "comment", "string", "number", "text", "value",
+	} {
+		opt[lexer] = map[string]any{"lex": false}
+	}
 	// The empty string is not a version. By default the engine answers an
 	// empty source with nil before any rule runs.
-	opt.Lex = &tabnas.LexOptions{Empty: &off}
+	opt["lex"] = map[string]any{"empty": false}
 	// Every rejection is the engine's base `unexpected` code (this plugin
 	// declares no codes of its own — see AGENTS.md); the hint is where a
 	// reader learns what a version has to look like. Same text as the TS
 	// plugin.
-	opt.Hint = map[string]string{
+	opt["hint"] = map[string]any{
 		"unexpected": `
 The character(s) {src} do not match any rule alternative active at
 this position.
@@ -305,13 +315,12 @@ where a numeric pre-release identifier has no leading zero. Nothing
 else is allowed: no whitespace, no "v" prefix, no empty identifier.
 See https://semver.org/spec/v2.0.0.html`,
 	}
-	spec.Options = opt
 
 	return j.Grammar(spec)
 }
 
 // Make returns a new engine with the Semver plugin installed. Build one
-// and reuse it: compiling the grammar dominates a parse. The instance is
+// and reuse it: installing the grammar dominates a parse. The instance is
 // not safe for concurrent Parse calls; see Parse for a shared one.
 func Make() *tabnas.Tabnas {
 	j := tabnas.Make()
@@ -464,98 +473,6 @@ func Format(v any) (string, error) {
 		sb.WriteString(s)
 	}
 	return sb.String(), nil
-}
-
-// stripTreeActions removes the compiler's tree-building actions from a
-// converted spec, in place: every alt action that resolves through
-// spec.Ref is the emitter's own AST builder (this grammar has no other
-// kind — no `bo`/`bc` hooks and no probe dispatcher), and dropping them
-// leaves the rules, the tokens and therefore the accepted language
-// exactly as they were. It is the typed-spec equivalent of
-// bnf.ToRecognitionSpec, which returns pure data instead of a spec and
-// so cannot be installed without a serialise/reload round trip.
-//
-// Call it BEFORE AttachActions, which adds the one action that must
-// survive.
-func stripTreeActions(spec *tabnas.GrammarSpec) {
-	if spec == nil || len(spec.Ref) == 0 {
-		return
-	}
-	// The same drop set bnf.ToRecognitionSpec uses: an action that
-	// resolves through spec.Ref (closure conversion, which is what this
-	// plugin does) or names one of the engine's tree-building builtins
-	// (a `Builtins: true` conversion, which this plugin does not do —
-	// listed so the strip stays correct if it ever starts to).
-	treeBuiltin := map[string]bool{
-		"@node$": true, "@capture$": true, "@bubble$": true, "@fold$": true,
-	}
-	isRef := func(v any) bool {
-		s, ok := v.(string)
-		if !ok {
-			return false
-		}
-		if treeBuiltin[s] {
-			return true
-		}
-		_, found := spec.Ref[tabnas.FuncRef(s)]
-		return found
-	}
-	keep := func(v any) any {
-		switch a := v.(type) {
-		case nil:
-			return nil
-		case string:
-			if isRef(a) {
-				return nil
-			}
-		case []any:
-			out := make([]any, 0, len(a))
-			for _, e := range a {
-				if !isRef(e) {
-					out = append(out, e)
-				}
-			}
-			if len(out) == 0 {
-				return nil
-			}
-			return out
-		}
-		return v
-	}
-	for _, rule := range spec.Rule {
-		if rule == nil {
-			continue
-		}
-		for _, alts := range [][]*tabnas.GrammarAltSpec{
-			specAlts(rule.Open), specAlts(rule.Close),
-		} {
-			for _, alt := range alts {
-				if alt == nil {
-					continue
-				}
-				alt.A = keep(alt.A)
-				// The dropped builtins' per-alt configuration goes with
-				// them; anything else under K is the grammar's own.
-				for _, k := range []string{"node$", "capture$", "fold$"} {
-					delete(alt.K, k)
-				}
-			}
-		}
-	}
-	spec.Ref = nil
-}
-
-// specAlts reads a rule-spec phase in either shape the engine accepts.
-func specAlts(state any) []*tabnas.GrammarAltSpec {
-	switch v := state.(type) {
-	case []*tabnas.GrammarAltSpec:
-		return v
-	case *tabnas.GrammarAltListSpec:
-		if v != nil {
-			return v.Alts
-		}
-	}
-	return nil
 }
 
 func numberText(n any) (string, error) {

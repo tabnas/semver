@@ -4,10 +4,12 @@
 ;   (section "Backus–Naur Form Grammar for Valid SemVer Versions")
 ;
 ; This file is the single source of truth for @tabnas/semver. It is RFC
-; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at plugin
-; install time, in all three runtimes (ts/src/semver.ts, go/semver.go and
-; rs/src/lib.rs embed it verbatim; "npm run embed" copies it there; never
-; edit the copies).
+; 5234 ABNF, compiled by @tabnas/abnf into a tabnas grammar at BUILD time:
+; "npm run gen-grammar" (from ts/) writes semver-grammar.json beside this
+; file and a copy of it into each runtime, which installs that compiled
+; grammar and loads no compiler. ts/src/semver.ts, go/semver.go and
+; rs/src/lib.rs also embed this text verbatim, as the exported grammar
+; ("npm run embed" copies it there). Never edit any copy.
 ;
 ; Every production keeps the name the specification gives it, with the
 ; specification's spaces written as hyphens ("<version core>" is

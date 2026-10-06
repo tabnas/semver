@@ -19,15 +19,15 @@ Docs, guides, the error reference and the playground: **[tabnas.dev](https://tab
 
 ```bash
 # TypeScript / JavaScript
-npm install @tabnas/parser @tabnas/abnf @tabnas/semver
+npm install @tabnas/parser @tabnas/semver
 
 # Go
 go get github.com/tabnas/semver/go@latest
 ```
 
 The Rust crate is unpublished, like the engine it needs. Clone
-`tabnas/parser`, `tabnas/abnf` and `tabnas/bnf` beside this repository
-and take it by path; [`rs/README.md`](rs/README.md) has the manifest.
+`tabnas/parser` beside this repository and take it by path;
+[`rs/README.md`](rs/README.md) has the manifest.
 
 ## One tiny example
 
@@ -87,8 +87,10 @@ The specification publishes its grammar in BNF. This plugin transcribes
 it into RFC 5234 ABNF ([`semver-grammar.abnf`](semver-grammar.abnf), one
 production per production of the specification, with the same names)
 and [`@tabnas/abnf`](https://github.com/tabnas/abnf) compiles that text
-into the engine's rule set when the plugin is installed. Nothing in the
-plugin's code decides what a valid version is. The two places the grammar
+into the engine's rule set at build time
+([`semver-grammar.json`](semver-grammar.json), one file that all three
+runtimes install), so installing the plugin loads no compiler. Nothing
+in the plugin's code decides what a valid version is. The two places the grammar
 departs from the specification's *shape* (never its language) are
 explained inline in the file.
 

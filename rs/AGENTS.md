@@ -11,7 +11,7 @@ result differs from the canonical one.
 
 | Path | |
 |---|---|
-| `src/lib.rs` | the whole port: the embedded grammar, `semver`, `plugin`, `make`, `make_with`, `parse`, `format`, `compare`, the value builder and the ECMAScript number rendering |
+| `src/lib.rs` | the whole port: the embedded grammar text and compiled grammar, `semver`, `plugin`, `make`, `make_with`, `parse`, `format`, `compare`, the value builder and the ECMAScript number rendering |
 | `tests/parity_test.rs` | every `../test/spec/*.tsv` fixture through `tabnas_support::Runner`, one shared parser for every row |
 | `tests/precedence_test.rs` | `../test/precedence/order.tsv` (every pair, so transitivity too) and `equal.tsv` |
 | `tests/oracle_test.rs` | the generated 58,449-string corpus graded against the regular expression semver.org publishes, census and hash pinned |
@@ -19,20 +19,20 @@ result differs from the canonical one.
 | `tests/divergence_test.rs` | the Rust half of every `../DIVERGENCE.md` row |
 | `tests/debug_model_test.rs` | the composition test, mirrored from `ts/test/debug-model.test.ts`: the grammar layered with `tabnas-debug`, and the structured model of the installed rule set |
 | `tests/perf_test.rs` | instance reuse beats rebuild-per-parse, a long identifier survives, and the installed grammar carries no tree builders |
-| `tests/embed_test.rs` | the embedded grammar equals `../semver-grammar.abnf`, in all three runtimes |
+| `tests/embed_test.rs` | the embedded grammar equals `../semver-grammar.abnf`, and the compiled grammar `../semver-grammar.json`, in all three runtimes |
+| `tests/runtime_deps_test.rs` | no ABNF compiler (`tabnas-abnf`, `tabnas-bnf`) in a table cargo builds into the library |
+| `semver-grammar.json` | the compiled grammar, a generated copy of `../semver-grammar.json` (`npm run gen-grammar` from `../ts`); `src/lib.rs` embeds it with `include_str!` |
 | `tests/version_test.rs` | `Cargo.toml` == `VERSION` == `ts/package.json` == the TypeScript and Go constants |
 | `tests/common/mod.rs` | shared helpers: the spec directories, JSON flattening, failure conversion |
 | `README.md` | the crate front page, prose-gated; its `rust` fences are doctests of this crate |
 
 Crate `tabnas-semver`, library `tabnas_semver`. The engine (`tabnas`),
-the ABNF compiler (`tabnas-abnf`), the fixture runner (`tabnas-support`,
-dev only) and the introspection plugin (`tabnas-debug`, dev only) are
-**path dependencies on sibling checkouts** (`../../parser/rs`,
-`../../abnf/rs`, `../../support/rs`, `../../debug/rs`). `tabnas-bnf` has
-no entry, because `tabnas-abnf` depends on it, but `../../bnf/rs` must be
-on disk all the same: cargo reads the whole manifest graph before it
-compiles anything. None is published, so there is no registry version to
-fall back on.
+the fixture runner (`tabnas-support`, dev only) and the introspection
+plugin (`tabnas-debug`, dev only) are **path dependencies on sibling
+checkouts** (`../../parser/rs`, `../../support/rs`, `../../debug/rs`).
+The ABNF compiler is not a dependency in any table: the grammar arrives
+compiled, in `semver-grammar.json`, so neither `tabnas-abnf` nor
+`tabnas-bnf` has to be on disk to build or test the crate.
 
 ```bash
 cargo build --all-targets
@@ -50,24 +50,28 @@ check and the MSRV pin.
 `semver(&mut Tabnas)` mirrors the TypeScript `Semver` function top to
 bottom, and the order is load-bearing:
 
-1. **The grammar is compiled** by `abnf_convert` with `start: "semver"`
-   and `tag: "semver"`.
+1. **The compiled grammar is loaded**: `semver-grammar.json`, embedded,
+   parsed as JSON. It is, byte for byte, what `abnf_convert` with
+   `start: "semver"` and `tag: "semver"` followed by `to_recognition_spec`
+   produced here at every install before the grammar was compiled at
+   build time; the TypeScript and Go ports install the same file.
 2. **The one semantic action is attached** to the compiler's
    end-of-source wrapper, the rule named by `options.rule.start`
    (normally `__start__`), never to `semver`. `semver` closes as soon as
    a version has been read, which for `1.2.3f` happens before the engine
    discovers the trailing `f`; a value built there would describe a
-   string about to be rejected. `attach_actions` records a rule-phase
-   hook under the engine's own `@<rule>-<phase>` name, so the action is
-   registered on the INSTANCE with `state_action_ref` and survives the
-   strip below, which drops everything that resolves through
-   `spec.refs`.
-3. **The tree is thrown away.** `to_recognition_spec` returns the same
-   rules, the same tokens and the same accepted language as pure data,
-   with every AST-building action and every `node$` / `capture$` /
-   `fold$` config key removed. The plugin never reads a tree: the action
-   above builds the value from the accepted text. `tests/perf_test.rs`
-   asserts the installed document carries none of them.
+   string about to be rejected. It is registered on the INSTANCE with
+   `state_action_ref`, under the engine's own `@<rule>-<phase>` name,
+   which the engine wires when that rule is installed; that is the name
+   `attach_actions` gave the same hook when the plugin compiled the
+   grammar itself.
+3. **The tree is already gone.** The compiled grammar holds the same
+   rules, the same tokens and the same accepted language as the
+   compiler's full output, with every AST-building action and every
+   `node$` / `capture$` / `fold$` config key removed when it was
+   generated. The plugin never reads a tree: the action above builds the
+   value from the accepted text. `tests/perf_test.rs` asserts the
+   embedded document carries none of them.
 4. **The options are applied** to that document, each key replaced
    rather than merged, exactly as the TypeScript object spread replaces
    it: every default lexer off, the engine's JSON punctuation tokens

@@ -3,15 +3,14 @@
 # quietly drift apart: .github/workflows/rust.yml runs this file, and so
 # can you. `make test-rs` is the fast inner loop; this is the full gate.
 #
-# The engine and the ABNF compiler are PATH DEPENDENCIES on sibling
-# checkouts (rs/Cargo.toml: `tabnas = { package = "tabnas-parser", path = "../../parser/rs" }` and
-# `tabnas-abnf = { path = "../../abnf/rs" }`), and neither crate is
-# published, so there is no registry version to fall back on. Clone
-# https://github.com/tabnas/parser and https://github.com/tabnas/abnf next
-# to this repo before running. `tabnas-abnf` in turn depends on
-# https://github.com/tabnas/bnf, which gets no entry in rs/Cargo.toml but
-# has to be on disk all the same: cargo reads the whole manifest graph
-# before it compiles anything. The test suite needs two more siblings,
+# The engine is a PATH DEPENDENCY on a sibling checkout (rs/Cargo.toml:
+# `tabnas = { package = "tabnas-parser", path = "../../parser/rs" }`), so
+# clone https://github.com/tabnas/parser next to this repo before running.
+# The ABNF compiler is not a Rust dependency at all: the grammar is
+# compiled at build time by the TypeScript toolchain (`npm run
+# gen-grammar`) into semver-grammar.json, which the crate embeds, so no
+# abnf or bnf checkout is needed here. The test suite needs two more
+# siblings,
 # https://github.com/tabnas/support, the shared fixture runner, and
 # https://github.com/tabnas/debug, the introspection plugin the
 # composition test layers on the grammar.
@@ -19,10 +18,10 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 
-# Every path dependency of rs/Cargo.toml, dev-dependencies and the
-# transitive bnf checkout included, checked before cargo gets a chance to
-# fail on one with a less useful message.
-for SIBLING in parser bnf abnf support debug; do
+# Every path dependency of rs/Cargo.toml, dev-dependencies included,
+# checked before cargo gets a chance to fail on one with a less useful
+# message.
+for SIBLING in parser support debug; do
   if [[ ! -f "$ROOT/../$SIBLING/rs/Cargo.toml" ]]; then
     echo "no $SIBLING checkout at $ROOT/../$SIBLING/rs" >&2
     echo "clone https://github.com/tabnas/$SIBLING as a sibling of $(basename "$ROOT")" >&2
@@ -105,8 +104,6 @@ lock_without_sibling_versions() {
   awk '
     /^\[\[package\]\]$/          { sib = 0 }
     /^name = "tabnas-parser"$/          { sib = 1 }
-    /^name = "tabnas-bnf"$/      { sib = 1 }
-    /^name = "tabnas-abnf"$/     { sib = 1 }
     /^name = "tabnas-support"$/  { sib = 1 }
     /^name = "tabnas-debug"$/    { sib = 1 }
     sib && /^version = /         { print "version = \"<sibling>\""; next }
@@ -122,16 +119,16 @@ trap 'if [ -f "$LOCK_BEFORE" ] && ! cmp -s "$LOCK_BEFORE" Cargo.lock; then cp "$
 
 # NOT `--locked`, deliberately, and this is where a plugin gate differs
 # from the engine's own. Cargo.lock records the siblings by version, and
-# each is resolved from a checkout of MAIN. So the day parser, bnf, abnf
-# or support bumps its crate version, `--locked` here fails with "cannot
+# each is resolved from a checkout of MAIN. So the day parser, support or
+# debug bumps its crate version, `--locked` here fails with "cannot
 # update the lock file" on every pull request in this repo, including ones
 # that touch no Rust at all: a red build caused by another repository's
 # release.
 #
 # NOT `--all` on fmt either. cargo defines it as "all packages, and also
 # their local path-based dependencies", and every sibling IS such a
-# dependency, so `--all` reaches into the parser, bnf, abnf, support and
-# debug checkouts: an unformatted file over there fails this gate even
+# dependency, so `--all` reaches into the parser, support and debug
+# checkouts: an unformatted file over there fails this gate even
 # when every file here is clean.
 "${CARGO[@]}" fmt --check
 "${CARGO[@]}" build --all-targets
