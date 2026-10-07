@@ -181,7 +181,7 @@ TypeScript `VERSION`; `version_test.go` reads `ts/package.json` and fails
 
 `9007199254740991`, JavaScript's `Number.MAX_SAFE_INTEGER`: the largest
 integer a numeric component is returned as a `float64` for. Anything
-larger is a `*big.Int`. Both runtimes switch representation here.
+larger is a `*big.Int`. Every runtime switches representation here.
 
 ## Value types
 

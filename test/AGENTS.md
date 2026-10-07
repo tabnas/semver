@@ -49,11 +49,11 @@ the digits in a string there, which is the single entry in
 
 ### `precedence/order.tsv`
 
-One column, `version`. Rows are in strictly ascending precedence. Both
+One column, `version`. Rows are in strictly ascending precedence. All three
 runners check every pair `(i, j)` with `i < j` compares `-1` and the reverse
 `1`, and that every row equals itself — so the file pins transitivity, not
-only adjacent pairs. Keep it sorted; a row out of order fails in both
-runtimes.
+only adjacent pairs. Keep it sorted; a row out of order fails in every
+runtime.
 
 ### `precedence/equal.tsv`
 
@@ -62,7 +62,7 @@ Two columns, `a` and `b`. Each pair compares `0` both ways.
 ## Rules
 
 - Prefer adding a fixture here over a one-off in-language assertion when a
-  case is expressible as input → output. That is what keeps the two
+  case is expressible as input → output. That is what keeps the
   runtimes honest against each other.
 - **Every rejection is `ERROR:unexpected`.** This plugin declares no error
   codes of its own (see the root `AGENTS.md`), so `unexpected` — the

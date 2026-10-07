@@ -191,7 +191,7 @@ valid version, parse the formatted string back.
 The specification puts no upper bound on `MAJOR`, `MINOR`, `PATCH` or a
 numeric pre-release identifier. A component up to `MaxSafeInteger`
 (2^53 − 1 = 9007199254740991, JavaScript's `Number.MAX_SAFE_INTEGER`, so
-both runtimes switch at the same value) is a `float64`; one above it is
+every runtime switches at the same value) is a `float64`; one above it is
 a `*big.Int` from `math/big`, exact to the digit, never rounded:
 
 ```go
@@ -278,7 +278,7 @@ text. The empty string fails at row 1, column 1 with an empty `Src`;
 `v1.2.3` at column 1 with `Src` `"v"`. Only the code is guaranteed to
 match the TypeScript plugin's: `code` is the one cross-runtime field of
 the diagnostic, and at a lookahead failure the reported column is not
-guaranteed to agree between the two engines, so compare positions only
+guaranteed to agree between the engines, so compare positions only
 within one runtime.
 
 ## Install the plugin on your own engine

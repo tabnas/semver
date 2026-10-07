@@ -5,7 +5,7 @@ package tabnassemver
 // The plugin's own surface: the value shape, the float64/*big.Int
 // boundary, Format, Compare, and the error contract. Everything expressible
 // as `input → JSON` lives in the shared fixtures (test/spec/*.tsv, run by
-// both runtimes); what is here is what a fixture cannot say — big
+// every runtime); what is here is what a fixture cannot say — big
 // integers, function results, error details — mirrored case for case with
 // ts/test/semver.test.ts.
 

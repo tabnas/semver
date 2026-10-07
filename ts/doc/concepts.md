@@ -284,7 +284,7 @@ compare(tn.parse('2.0.0'), tn.parse('10.0.0')) // => -1
 The specification's own chain (`1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
 1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1`) sits inside
-the shared fixture `test/precedence/order.tsv`, which both runtimes check
+the shared fixture `test/precedence/order.tsv`, which all three runtimes check
 pairwise in both directions, so transitivity is pinned too;
 `equal.tsv` holds pairs that differ at most in build metadata.
 
@@ -352,7 +352,7 @@ alternative at a leading position is inlined by Paull's substitution
 language rather than merely label a rejection. A code that can only be
 raised from some positions is worse than none. The fixtures pin the
 contract instead: all 141 rows of `test/spec/strict.tsv` expect
-`ERROR:unexpected`, compared exactly in both runtimes. The position
+`ERROR:unexpected`, compared exactly in all three runtimes. The position
 reported at a lookahead failure may differ between the runtimes; the
 code is the contract, the position is not.
 
@@ -375,29 +375,30 @@ input.
 | `mutation`: valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
 | `random`: random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
 
-The corpus is generated, not committed: both runtimes derive the same
+The corpus is generated, not committed: all three runtimes derive the same
 58,449 strings from the same alphabets, enumeration order and
 xorshift32 stream, and a pinned FNV-1a hash over the whole corpus
 (`0x97bd27cb`) proves they graded the same strings. The per-section
 census is pinned as well, so a section that starts accepting more or
 fewer strings goes red instead of inflating a pass rate; changing the
-generator means re-pinning both constants in both runtimes in one
+generator means re-pinning both constants in every runtime in one
 commit. The suites never skip.
 
 Everything the corpus pins that is worth reading is also committed as a
 shared fixture: `test/spec/*.tsv` holds the specification's own
 examples, the version core, pre-release and build identifiers, and the
 141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
-`compare` chain and the equal pairs. Both runtimes auto-discover and run
+`compare` chain and the equal pairs. All three runtimes run
 every file. A new parse case belongs there; the in-language suites keep
 only what a `.tsv` cannot express: `bigint` values, function results,
 error details.
 
 ## Relationship to the Go port
 
-The plugin ships in two implementations built from the one grammar (and
-a Rust crate, a third): `embed-grammar.js` copies `semver-grammar.abnf`
-verbatim into both `src/semver.ts` and `go/semver.go`, and the Go port
+The plugin ships in three implementations built from the one grammar
+(this one, the Go port and a Rust crate): `embed-grammar.js` copies
+`semver-grammar.abnf` verbatim into `src/semver.ts`, `go/semver.go` and
+`rs/src/lib.rs`, and the Go port
 installs the same compiled `semver-grammar.json` this side does, sets
 the same engine options, and runs the same shared fixtures and the same corpus with the same
 pinned census and hash. This TypeScript version is canonical: when the
