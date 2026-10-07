@@ -3,7 +3,7 @@
 // The plugin's own surface: the value shape, the number/bigint boundary,
 // `format`, `compare`, and the error contract. Everything expressible as
 // `input → JSON` lives in the shared fixtures (test/spec/*.tsv, run by
-// both runtimes); what is here is what a fixture cannot say — bigint
+// every runtime); what is here is what a fixture cannot say — bigint
 // values, function results, error details — mirrored case for case in
 // go/semver_test.go.
 

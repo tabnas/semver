@@ -8,8 +8,9 @@
 // nothing ever rewrote it. Both were invisible until someone read the file. A
 // release that bumps package.json and forgets the constant now fails here.
 //
-// `go/version_test.go` checks the Go `const VERSION` against the SAME
-// package.json, so the two runtimes cannot drift apart either.
+// `go/version_test.go` checks the Go `const VERSION`, and
+// `rs/tests/version_test.rs` the Rust pair, against the SAME package.json,
+// so the runtimes cannot drift apart either.
 
 import { describe, test } from 'node:test'
 import assert from 'node:assert'

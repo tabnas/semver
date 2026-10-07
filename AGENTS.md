@@ -250,7 +250,7 @@ class eager, so its output never needed the loop either, and
 observable half (`1.0.0-01a` and `1.0.0-12a` parse). The
 same parser change also lets `@<rule>-<phase>` lifecycle hooks bind on
 hyphenated rule names in TypeScript; this plugin does not depend on that
-(see the gotchas). The shapes are pinned for both runtimes in the abnf
+(see the gotchas). The shapes are pinned in the abnf
 repo's parity fixtures
 ([tabnas/abnf#54](https://github.com/tabnas/abnf/pull/54)).
 
@@ -363,10 +363,9 @@ semver-grammar.abnf --(npm run gen-grammar: @tabnas/abnf)--> semver-grammar.json
    All three `VERSION` constants MUST equal `ts/package.json` "version",
    and `rs/Cargo.toml` `version` with them; `go/version_test.go`,
    `ts/test/version.test.ts` and `rs/tests/version_test.rs` read that
-   file and fail (never skip) on drift. The release orchestrator
-   rewrites the first three, and `make set-version` does not yet touch
-   the Rust pair: the crate is unpublished, and its test fails the build
-   until somebody catches up.
+   file and fail (never skip) on drift. The release orchestrator (admin
+   `publish.sh`) rewrites all five, and so does `make set-version`, the
+   Rust pair included.
 
 ## Repo-specific gotchas
 
@@ -422,10 +421,10 @@ semver-grammar.abnf --(npm run gen-grammar: @tabnas/abnf)--> semver-grammar.json
   `undefined` / `nil` before any rule runs; the plugin makes it an
   `unexpected` error like any other non-version.
 - **Error positions at a lookahead failure are not the contract.**
-  `01.2.3` is rejected by both runtimes at the `0` today (column 1), and
+  `01.2.3` is rejected at the `0` today (column 1), and
   `1.2.3-01` at the end of the input (column 9), but a column at a
   lookahead failure is where the engine gave up, not a promise: it can
-  move with a compiler change and the two engines are not required to
+  move with a compiler change and the engines are not required to
   agree (the parser repo's `DIVERGENCE.md` records the general case).
   The code is the contract. Fixtures pin `ERROR:unexpected` only.
 - **Installing the plugin still costs many parses.** It no longer
@@ -488,7 +487,7 @@ lists `go/v*` tags, and `make publish-go V=x.y.z` injects `V` into the
 The commands that prove a change is correct. Run from the repo root:
 
 ```bash
-make build && make test      # both runtimes — the check that matters
+make build && make test      # all three runtimes — the check that matters
 ```
 
 Narrower, when iterating:
@@ -577,12 +576,14 @@ The steps, in order:
    suite then passes against unreleased code while appearing to verify the
    published one. Reinstalling is the part that matters.
 
-   One thing a clean install does **not** isolate:
-   `ts/test/doc-examples.test.*` resolves `@tabnas/*` by filesystem path
-   (`const TABNAS = path.join(REPO, '..')`), not through `node_modules`. If
-   unbuilt sibling checkouts sit beside this repo, those blocks fail with
-   `MODULE_NOT_FOUND` no matter what you installed — build the siblings, or
-   verify somewhere they are absent.
+   The clean install covers the doc examples too:
+   `ts/test/doc-examples.test.*` resolves a doc example's `require`
+   through `node_modules` first, and only a `@tabnas/*` package that is
+   not installed falls back to the sibling checkout `../<x>/ts`
+   (`const TABNAS = path.join(REPO, '..')`), with `@tabnas/semver` itself
+   served from this repository's `ts/`. The tested examples name only
+   `@tabnas/parser`, an installed devDependency, and `@tabnas/semver`, so
+   none of them reaches a sibling checkout.
 
    `npm test` already compiles here: `ts/package.json` sets `pretest` to
    `npm run build`, which npm runs automatically. No separate build step is
@@ -596,13 +597,17 @@ The steps, in order:
    ```bash
    (
      cd go
-     go mod edit -json | grep -q '"Replace": null' || { echo 'go.mod has a replace'; exit 1; }
+     go mod edit -json | jq -e '.Replace == null' >/dev/null || { echo 'go.mod has a replace'; exit 1; }
      GOWORK=off go test -count=1 ./...
    )
    ```
 
    `-count=1` because shared fixtures live outside the Go module, so a
-   changed corpus does not invalidate the test cache.
+   changed corpus does not invalidate the test cache. The check asks `jq`,
+   not `grep`: current Go leaves the `Replace` key out when there is no
+   replace, where older Go printed `"Replace": null`, and `jq` reads a
+   missing key as null, so the check passes on a clean `go.mod` and fails
+   on a replace either way.
 3. **Merge the bump through a reviewed PR.** That is the house convention —
    `CONTRIBUTING.md` squash-merges PRs and takes the title as the commit
    message — and what `release.yml`'s own header describes. A direct push to
@@ -769,7 +774,7 @@ They stay in the Makefile because removing them is a separate change.
 ## Error codes
 
 This package declares **no** error codes of its own: there is no
-`error`/`hint` catalogue entry for a new code in either runtime. Every
+`error`/`hint` catalogue entry for a new code in any runtime. Every
 rejection is the engine's base **`unexpected`** code, raised where the
 grammar has no alternative for the next character, and the plugin only
 adds a `hint` for it that says what a version has to look like.
@@ -873,7 +878,7 @@ is live and covers `rs/README.md`. See [`ci/README.md`](ci/README.md).
 
 The `Code Quality` runs come from the repository's CodeQL default setup,
 configured in the code-security settings rather than in a workflow file,
-and analyse the two languages this tree contains. It listed Python while
+and analyse two of the three languages this tree contains. It listed Python while
 the ZON scaffold's corpus tooling was here; that job failed with "no
 source code seen" from the moment the tooling was removed until the
 setting was corrected. If a language is ever added or removed here, that

@@ -201,7 +201,7 @@ var Defaults = map[string]any{}
 
 // MaxSafeInteger is the largest integer a numeric component is returned
 // as a float64 for; anything larger is a *big.Int. It is 2^53 - 1,
-// JavaScript's Number.MAX_SAFE_INTEGER, so the two runtimes switch
+// JavaScript's Number.MAX_SAFE_INTEGER, so every runtime switches
 // representation at the same value.
 const MaxSafeInteger = 1<<53 - 1
 

@@ -16,9 +16,9 @@
 // go/oracle_test.go: the same alphabets, the same enumeration order, the
 // same xorshift32 stream from the same seed, the same mutation operators
 // in the same order. A pinned census (how many strings each section
-// accepts) and a pinned FNV-1a hash over the whole corpus make sure both
-// runtimes graded the same strings. Changing the corpus means changing
-// both constants, in both runtimes, in the same commit.
+// accepts) and a pinned FNV-1a hash over the whole corpus make sure every
+// runtime graded the same strings. Changing the corpus means changing
+// both constants, in every runtime, in the same commit.
 //
 //   exhaustive  the empty string, and EVERY string of length 1..5 over
 //               an 8-character alphabet that covers each character class
@@ -105,7 +105,7 @@ function* upTo(alphabet: string, min: number, max: number): Generator<string> {
   for (let len = min; len <= max; len++) yield* strings(alphabet, len)
 }
 
-// xorshift32, the same stream in both runtimes.
+// xorshift32, the same stream in every runtime.
 class Rng {
   x: number
   constructor(seed: number) {

@@ -25,9 +25,9 @@ npm install @tabnas/parser @tabnas/semver
 go get github.com/tabnas/semver/go@latest
 ```
 
-The Rust crate is unpublished, like the engine it needs. Clone
-`tabnas/parser` beside this repository and take it by path;
-[`rs/README.md`](rs/README.md) has the manifest.
+The Rust crate is published on crates.io, like the engine it needs, so
+`cargo add tabnas-semver tabnas-parser` takes both;
+[`rs/README.md`](rs/README.md) has the details.
 
 ## One tiny example
 

@@ -241,7 +241,7 @@ fit `MaxSafeInteger` (`1<<53 - 1`, JavaScript's
 `Number.MAX_SAFE_INTEGER`) and a `*big.Int` from `math/big` beyond it.
 The specification places no upper bound on an integer, and a parser
 that silently rounded `9007199254740993.0.0` would report the wrong
-version. The threshold is JavaScript's so that the two runtimes switch
+version. The threshold is JavaScript's so that every runtime switches
 representation at the same value; `Format` renders either as plain
 digits.
 
@@ -310,7 +310,7 @@ lt("2.0.0", "10.0.0")                   // -1
 The specification's own chain (`1.0.0-alpha < 1.0.0-alpha.1 <
 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 <
 1.0.0-rc.1 < 1.0.0`, and `1.0.0 < 2.0.0 < 2.1.0 < 2.1.1`) sits inside
-the shared fixture `test/precedence/order.tsv`, which both runtimes
+the shared fixture `test/precedence/order.tsv`, which all three runtimes
 check pairwise in both directions, so transitivity is pinned too;
 `equal.tsv` holds the pairs that differ at most in build metadata.
 
@@ -362,14 +362,14 @@ alternative at a leading position is inlined by Paull's substitution
 language rather than merely label a rejection. A code that can only be
 raised from some positions is worse than none. The fixtures pin the
 contract instead: all 141 rows of `test/spec/strict.tsv` expect
-`ERROR:unexpected`, compared exactly in both runtimes.
+`ERROR:unexpected`, compared exactly in all three runtimes.
 
 The position is where the grammar ran out of alternatives, which is not
 always where a human would point. `v1.2.3` fails at column 1 on the
 `v`; `1.2.3-01` fails at column 9, the end of the input, because `01`
 could still have become the alphanumeric identifier `01a` and only the
-end of the string settled it. `01.2.3` is reported at the `0` in both
-runtimes today, but at a lookahead failure the two engines are not
+end of the string settled it. `01.2.3` is reported at the `0` today,
+but at a lookahead failure the engines are not
 required to agree, and a compiler change can move the column. The code
 is the contract; the position is not.
 
@@ -391,20 +391,20 @@ the expression's captures and `Format` must return the input.
 | `mutation`: valid versions with 1–3 random edits | 3,000 | 838 | 2,162 |
 | `random`: random strings of length 1–12 over a wider alphabet (blanks, tab, `v`, `_`, `/`, `:`) | 1,000 | 0 | 1,000 |
 
-The corpus is generated, not committed: both runtimes derive the same
+The corpus is generated, not committed: all three runtimes derive the same
 58,449 strings from the same alphabets, enumeration order and
 xorshift32 stream, and a pinned FNV-1a hash over the whole corpus
 (`0x97bd27cb`) proves they graded the same strings. The per-section
 census is pinned as well, so a section that starts accepting more or
 fewer strings goes red instead of inflating a pass rate; changing the
-generator means re-pinning both constants in both runtimes in one
+generator means re-pinning both constants in every runtime in one
 commit. The suites never skip.
 
 Everything the corpus pins that is worth reading is also committed as a
 shared fixture: `test/spec/*.tsv` holds the specification's own
 examples, the version core, pre-release and build identifiers, and the
 141 rejections of `strict.tsv`; `test/precedence/*.tsv` holds the
-`Compare` chain and the equal pairs. Both runtimes run every file:
+`Compare` chain and the equal pairs. Every runtime runs every file:
 `parity_test.go` auto-discovers `test/spec`, `precedence_test.go` loads
 the two precedence files by name. A new parse case
 belongs there; the in-language suites keep only what a `.tsv` cannot
@@ -462,7 +462,7 @@ predictable concrete types and, being a map, no key order:
 The most visible consequence is that `1.2.3` comes back as
 `float64(1)`, `float64(2)`, `float64(3)`: Go has no separate integer
 type in the result, and the switch to `*big.Int` happens at exactly the
-value where TypeScript switches to `bigint`, so a reader of either
+value where TypeScript switches to `bigint`, so a reader of any
 runtime's value can rely on the same boundary.
 
 ### Concurrency
@@ -489,8 +489,8 @@ is guaranteed to match at a lookahead failure; see above.
 
 ### Hooks
 
-Both runtimes hang their one action on the compiler's `__start__`
-wrapper, and both install one compiled grammar, `semver-grammar.json`,
+All three runtimes hang their one action on the compiler's `__start__`
+wrapper, and all three install one compiled grammar, `semver-grammar.json`,
 with the compiler's tree-building actions already dropped. TypeScript
 registers the action in the spec's `ref` map; this port sets
 `spec.Ref` on the `*tabnas.GrammarSpec` that `GrammarSpecFromJSON`
@@ -519,5 +519,5 @@ module never needed either fix.
 
 The TypeScript side of all of this is in
 [`../../ts/doc/concepts.md`](../../ts/doc/concepts.md); the conformance
-claim and the alignment rules the two runtimes follow are in the root
+claim and the alignment rules the runtimes follow are in the root
 [AGENTS.md](../../AGENTS.md).

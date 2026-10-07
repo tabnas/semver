@@ -19,8 +19,8 @@ package tabnassemver
 // the same xorshift32 stream from the same seed, the same mutation
 // operators in the same order. A pinned census (how many strings each
 // section accepts) and a pinned FNV-1a hash over the whole corpus make
-// sure both runtimes graded the same strings. Changing the corpus means
-// changing both constants, in both runtimes, in the same commit.
+// sure every runtime graded the same strings. Changing the corpus means
+// changing both constants, in every runtime, in the same commit.
 
 import (
 	"fmt"
@@ -111,7 +111,7 @@ func oracleUpTo(alphabet string, min, max int) []string {
 	return out
 }
 
-// xorshift32, the same stream in both runtimes.
+// xorshift32, the same stream in every runtime.
 type oracleRng struct{ x uint32 }
 
 func (r *oracleRng) next() uint32 {
