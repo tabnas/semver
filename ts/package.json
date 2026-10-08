@@ -1,6 +1,6 @@
 {
   "name": "@tabnas/semver",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Semantic Versioning 2.0.0 (semver.org) parsing for the Tabnas parser, defined as an ABNF grammar.",
   "main": "dist/semver.js",
   "type": "commonjs",
@@ -48,7 +48,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "@tabnas/parser": ">=0.12.8"
+    "@tabnas/parser": ">=0.12.11"
   },
   "devDependencies": {
     "@tabnas/abnf": "*",
