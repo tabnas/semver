@@ -17,7 +17,7 @@ npm install @tabnas/parser @tabnas/semver
 |---|---|
 | Package | `@tabnas/semver` |
 | Module type | CommonJS (`main: dist/semver.js`, types `dist/semver.d.ts`) |
-| Peer deps | `@tabnas/parser` >= 0.12.8 |
+| Peer deps | `@tabnas/parser` >= 0.12.11 |
 | Engine | `@tabnas/parser` (Tabnas) |
 | Compiled grammar | `src/semver-grammar.json`, the engine's rule set, generated from `semver-grammar.abnf` by `@tabnas/abnf` (over `@tabnas/bnf`) at build time |
 | Node | >= 24 |

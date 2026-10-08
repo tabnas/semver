@@ -186,7 +186,7 @@ are no `file:` paths and no `replace` directives.
   a `"*"` devDependency only, for `gen-grammar.js` and the test that holds
   the committed file to it, and `@tabnas/debug` and `@tabnas/support` are
   dev-only too. The peer range is a floor, not the fleet's bare `">=0"`,
-  at the version `go/go.mod` requires: today `@tabnas/parser` `>=0.12.8`.
+  at the version `go/go.mod` requires: today `@tabnas/parser` `>=0.12.11`.
   It moves with each release, as it does in abnf, ebnf and gbnf. Until the
   grammar was compiled at build time, `@tabnas/abnf` was a peer as well,
   floored the same way; the first floors, abnf `>=0.4.8` and parser
