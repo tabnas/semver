@@ -157,6 +157,9 @@ all of them.
 | [`ts/`](ts/) | **Canonical** TypeScript implementation — the `@tabnas/semver` package. Plugin in `src/semver.ts`. Peer-depends on `@tabnas/parser` alone; `@tabnas/abnf` is a devDependency, for `gen-grammar.js` and its staleness test. No CLI. |
 | [`go/`](go/) | Go port — `github.com/tabnas/semver/go` (`const VERSION` in `go/semver.go`). Plugin `Semver` plus `Make` / `Parse` / `Compare` / `Format`. Requires the published engine and, for its tests, `github.com/tabnas/support/go` (no `replace` directive); no ABNF compiler. |
 | [`rs/`](rs/) | Rust port — crate `tabnas-semver`, library `tabnas_semver` (`pub const VERSION` in `rs/src/lib.rs`). `semver` / `plugin` / `make` / `make_with` / `parse` / `compare` / `format`. Takes the engine as a PATH dependency on a sibling checkout, plus `tabnas-support` and `tabnas-debug` for the tests; no ABNF compiler. See [`rs/AGENTS.md`](rs/AGENTS.md). |
+| [`alchemy/render.alc`](alchemy/render.alc) | **Semantic Versioning's render**, an [alchemy](https://github.com/tabnas/alchemy) library whose entry point `semver-render` writes a version's events, the tree the reader builds, as its text, `major.minor.patch[-prerelease][+build]`, once the version has ended, so a tree that is not a version writes nothing before it fails. Every definition is named `semver-...`. The `translate` object in [`tabnas.plugin.json`](tabnas.plugin.json) names it, says the tree has the schema `semver` and an object at its root, and lists what a written version does not keep (`loss`). |
+| [`alchemy/embed.alc`](alchemy/embed.alc) | **Semantic Versioning's embedding**, beside the render: `semver-embed` passes a plain tree that is a version through unchanged (an object whose `major`, `minor` and `patch` are whole numbers written in digits, with an optional `prerelease` and `build`, each a list of identifiers or one string of them) and refuses any other with TARGET_VALUE_UNREPRESENTABLE, saying what a version needs, since a version has nowhere to put another tree; `semver-unembed`, its reverse, is the identity. |
+| [`ts/embed-translate.js`](ts/embed-translate.js) | Writes the manifest and both alchemy files into `ts/src/translate.ts` and copies them into `go/translate/` and `rs/translate/`, where `go:embed` and `include_str!` can reach them; `npm run embed` runs it, and so does `npm run build`, which embeds first. `translate()` hands the parts to a host in all three runtimes (`Translate()` in Go), and `ts/test/translate.test.ts`, `go/translate_test.go` and `rs/tests/translate_test.rs` fail until every copy is its file, so change a file at the root and run the embed; never edit a copy. The round trip that runs the parts needs alchemy, which this repository does not depend on, so it runs in the hosts' suites (aless, alchemy-cli). |
 | [`ts/embed-grammar.js`](ts/embed-grammar.js) | Embeds `semver-grammar.abnf` into **all three** of `src/semver.ts`, `go/semver.go` and `rs/src/lib.rs` (between `BEGIN/END EMBEDDED` markers) as a `grammarText` / `GRAMMAR_TEXT` literal. The Rust block is guarded on the file existing, so a checkout predating the port still embeds cleanly. Runs as the first half of `npm run build`. This is the ABNF TEXT, exported as `grammar` / `Grammar` / `GRAMMAR`; the compiled grammar is [`ts/gen-grammar.js`](ts/gen-grammar.js)'s. |
 | [`ts/gen-grammar.js`](ts/gen-grammar.js) | Compiles `semver-grammar.abnf` with `@tabnas/abnf` into `semver-grammar.json` and copies it into the three ports. `npm run gen-grammar`; deliberately NOT part of `npm run build`. |
 | [`test/spec/`](test/spec/) | Shared `.tsv` parse fixtures. **All three** runners auto-discover and run every file here. See [`test/AGENTS.md`](test/AGENTS.md). |
@@ -443,13 +446,15 @@ TypeScript (from `ts/`):
 
 ```bash
 npm install            # resolves @tabnas/* from the registry (or link siblings)
-npm run build          # node embed-grammar.js && tsc --build src && tsc --build test
+npm run build          # npm run embed (the grammar, the translation parts) && tsc --build src && tsc --build test
 npm test               # `pretest` builds first, then node --test dist-test/*.test.js
 npm run gen-grammar    # after editing semver-grammar.abnf: recompile semver-grammar.json and its copies
 ```
 
-`npm run build` **embeds the grammar first** (into `src/semver.ts` and
-`go/semver.go`), then `tsc --build`s both `src` and `test` — the tests are
+`npm run build` **embeds the grammar first** (into `src/semver.ts`,
+`go/semver.go` and `rs/src/lib.rs`), and the translation parts with it
+(`ts/embed-translate.js`, into `src/translate.ts`, `go/translate/` and
+`rs/translate/`), then `tsc --build`s both `src` and `test` — the tests are
 written in TypeScript and compiled to `dist-test/`.
 
 Go (from `go/`):

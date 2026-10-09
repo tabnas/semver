@@ -11,7 +11,8 @@ result differs from the canonical one.
 
 | Path | |
 |---|---|
-| `src/lib.rs` | the whole port: the embedded grammar text and compiled grammar, `semver`, `plugin`, `make`, `make_with`, `parse`, `format`, `compare`, the value builder and the ECMAScript number rendering |
+| `src/lib.rs` | the whole port: the embedded grammar text and compiled grammar, `semver`, `plugin`, `make`, `make_with`, `parse`, `format`, `compare`, the value builder and the ECMAScript number rendering; and the translation parts, `translate()` (its `embed` and `render`) with `manifest_text` and `render_text`, `include_str!` of the copies in `translate/` |
+| `translate/` | the crate's copies of `../tabnas.plugin.json` (as `manifest.json`), `../alchemy/render.alc` and `../alchemy/embed.alc`, which a packaged crate needs, written by `npm run embed` from `../ts`; `tests/translate_test.rs` holds them to the files |
 | `tests/parity_test.rs` | every `../test/spec/*.tsv` fixture through `tabnas_support::Runner`, one shared parser for every row |
 | `tests/precedence_test.rs` | `../test/precedence/order.tsv` (every pair, so transitivity too) and `equal.tsv` |
 | `tests/oracle_test.rs` | the generated 58,449-string corpus graded against the regular expression semver.org publishes, census and hash pinned |
@@ -21,6 +22,7 @@ result differs from the canonical one.
 | `tests/perf_test.rs` | instance reuse beats rebuild-per-parse, a long identifier survives, and the installed grammar carries no tree builders |
 | `tests/embed_test.rs` | the embedded grammar equals `../semver-grammar.abnf`, and the compiled grammar `../semver-grammar.json`, in all three runtimes |
 | `tests/runtime_deps_test.rs` | no ABNF compiler (`tabnas-abnf`, `tabnas-bnf`) in a table cargo builds into the library |
+| `tests/translate_test.rs` | the translation parts: the render and the embedding the embedded manifest names are the ones the crate embeds, the manifest's shapes, root, schema and loss lines, and every definition of both named `semver-...` |
 | `semver-grammar.json` | the compiled grammar, a generated copy of `../semver-grammar.json` (`npm run gen-grammar` from `../ts`); `src/lib.rs` embeds it with `include_str!` |
 | `tests/version_test.rs` | `Cargo.toml` == `VERSION` == `ts/package.json` == the TypeScript and Go constants |
 | `tests/common/mod.rs` | shared helpers: the spec directories, JSON flattening, failure conversion |

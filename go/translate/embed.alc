@@ -1,0 +1,261 @@
+; Semantic Versioning's embedding: a plain tree that is a version, as the
+; version tree the reader builds and the render writes, and back again.
+; This is a library of definitions, each named `semver-...`, which a host
+; links with its own program and with the render (alchemy's
+; `compile_sources`). It has two entry points: `semver-embed` takes a
+; plain tree's events to a version's, and `semver-unembed`, its reverse,
+; takes a version's events back. Nothing else here is the host's to call.
+;
+; A version has nowhere to put any other tree, so the embedding is the
+; identity on the trees that are one and refuses the rest. A tree is a
+; version when its root is an object whose `major`, `minor` and `patch`
+; are whole numbers written in digits (a number whose text is digits
+; alone, or a string of digits, which is how the Rust reader keeps one
+; past 2^53 - 1), and whose `prerelease` and `build`, where it has them,
+; are each a list of identifiers or one string of identifiers joined by
+; dots, or null or empty. An identifier is a string of `0-9`, `A-Z`,
+; `a-z` and `-`, not empty, or a number written in digits, and a
+; prerelease identifier of digits does not begin with a zero. Every
+; other member passes through, and the render does not write it. Each
+; check is the render's, and so is each failure: any other tree fails
+; with TARGET_VALUE_UNREPRESENTABLE, saying what a version needs, before
+; the render writes anything, and events no tree has fail with
+; PROTOCOL_ORDER_ERROR. A string of digits that begins with a zero is
+; told as the render tells it (see `alchemy/render.alc`).
+;
+; The reverse is the identity: the reader builds a version's tree, and a
+; version's tree is a plain tree. What it reads back is what the render
+; wrote, so what the render does not keep (the manifest's loss list) is
+; what the round trip changes: a member of the version's own is gone, an
+; absent prerelease or build reads back as an empty list, one string of
+; identifiers as the list of them, and an identifier as the reader builds
+; it.
+;
+; The state is the render's, a stack of markers, one for each container
+; the embedding is inside (see `alchemy/render.alc`): `[:version phase
+; major minor patch prerelease build]`, `[:ids name texts]` and `[:skip
+; open]`, and `[:done]` once the version has ended.
+
+def semver-embed-needs
+  "a version is an object whose major, minor and patch are whole numbers written in digits, with an optional prerelease and build, each a list of identifiers or one string of them"
+
+def semver-embed-digits [[48 57]]
+def semver-embed-identifier-chars [[45 45] [48 57] [65 90] [97 122]]
+def semver-embed-dotted-chars [[45 46] [48 57] [65 90] [97 122]]
+
+def semver-embed-fail [what]
+  fail :unrepresentable (string-join "" ["the document is not a version: " what "; " semver-embed-needs])
+
+def semver-embed-kind [value]
+  match (kind value)
+    case :null "null"
+    case :boolean "a boolean"
+    case :number "a number"
+    case :string "a string"
+    case _ "a container"
+
+def semver-embed-leading-zero [s]
+  match (compare (length s) 1)
+    case :greater
+      match (compare (number (string-join "" ["0." s])) (number "0.1"))
+        case :less true
+        case _ false
+    case _ false
+
+def semver-embed-number [what value]
+  match (number-class value)
+    case :finite
+      let [text (scalar-text csv-options value)]
+        if (chars-within semver-embed-digits text)
+          text
+          semver-embed-fail (string-join "" [what " is " text ", which is not a whole number written in digits"])
+    case _ (semver-embed-fail (string-join "" [what " is a number that is not finite"]))
+
+def semver-embed-digit-string [what value]
+  match (compare (length value) 0)
+    case :greater
+      if (chars-within semver-embed-digits value)
+        if (semver-embed-leading-zero value)
+          semver-embed-fail (string-join "" [what " is " (quoted value) ", which begins with a zero"])
+          value
+        semver-embed-fail (string-join "" [what " is " (quoted value) ", which is not digits"])
+    case _ (semver-embed-fail (string-join "" [what " is the empty string"]))
+
+def semver-embed-core [name value]
+  match (kind value)
+    case :number (semver-embed-number name value)
+    case :string (semver-embed-digit-string name value)
+    case _ (semver-embed-fail (string-join "" [name " is " (semver-embed-kind value)]))
+
+def semver-embed-identifier [name value]
+  match (kind value)
+    case :number (semver-embed-number (string-join "" ["an identifier of the " name]) value)
+    case :string
+      match (compare (length value) 0)
+        case :greater
+          if (chars-within semver-embed-identifier-chars value)
+            if (chars-within semver-embed-digits value)
+              match name
+                case "prerelease" (semver-embed-digit-string "an identifier of the prerelease" value)
+                case _ value
+              value
+            semver-embed-fail (string-join "" ["an identifier of the " name " is " (quoted value) ", where an identifier holds 0-9, A-Z, a-z and -"])
+        case _ (semver-embed-fail (string-join "" ["an identifier of the " name " is the empty string"]))
+    case _ (semver-embed-fail (string-join "" ["an identifier of the " name " is " (semver-embed-kind value)]))
+
+def semver-embed-optional [name value]
+  match (kind value)
+    case :null :none
+    case :string
+      match value
+        case "" :none
+        case _
+          if (chars-within semver-embed-dotted-chars value)
+            value
+            semver-embed-fail (string-join "" ["the " name " is " (quoted value) ", where its identifiers hold 0-9, A-Z, a-z and - and are joined by dots"])
+    case _ (semver-embed-fail (string-join "" ["the " name " is " (semver-embed-kind value) ", where it is a list of identifiers or one string of them"]))
+
+def semver-embed-top [s]
+  match (count s)
+    case 0 :none
+    case _ (top s)
+
+def semver-embed-mark [marker s]
+  push marker (pop s)
+
+def semver-embed-set [m name text]
+  match m
+    case [:version _ ma mi pa pr bu]
+      match name
+        case "major" [:version :key text mi pa pr bu]
+        case "minor" [:version :key ma text pa pr bu]
+        case "patch" [:version :key ma mi text pr bu]
+        case "prerelease" [:version :key ma mi pa text bu]
+        case "build" [:version :key ma mi pa pr text]
+
+def semver-embed-phase [m phase]
+  match m
+    case [:version _ ma mi pa pr bu] [:version phase ma mi pa pr bu]
+
+def semver-embed-key [s m name]
+  match name
+    case "major" (semver-embed-mark (semver-embed-phase m [:value name]) s)
+    case "minor" (semver-embed-mark (semver-embed-phase m [:value name]) s)
+    case "patch" (semver-embed-mark (semver-embed-phase m [:value name]) s)
+    case "prerelease" (semver-embed-mark (semver-embed-phase m [:value name]) s)
+    case "build" (semver-embed-mark (semver-embed-phase m [:value name]) s)
+    case _ (push [:skip []] s)
+
+def semver-embed-part [s m name value]
+  match name
+    case "prerelease" (semver-embed-mark (semver-embed-set m name (semver-embed-optional name value)) s)
+    case "build" (semver-embed-mark (semver-embed-set m name (semver-embed-optional name value)) s)
+    case _ (semver-embed-mark (semver-embed-set m name (semver-embed-core name value)) s)
+
+def semver-embed-open [s name container]
+  match [name container]
+    case ["prerelease" :array] (push [:ids name []] s)
+    case ["build" :array] (push [:ids name []] s)
+    case [_ :array] (semver-embed-fail (string-join "" [name " is a list"]))
+    case _ (semver-embed-fail (string-join "" [name " is an object"]))
+
+def semver-embed-ids-end [s name texts]
+  let [rest (pop s)]
+    match (count texts)
+      case 0 (semver-embed-mark (semver-embed-set (top rest) name :none) rest)
+      case _ (semver-embed-mark (semver-embed-set (top rest) name texts) rest)
+
+; The version has ended: it must have its three numbers.
+def semver-embed-end [m]
+  match m
+    case [:version _ :none _ _ _ _] (semver-embed-fail "it has no major")
+    case [:version _ _ :none _ _ _] (semver-embed-fail "it has no minor")
+    case [:version _ _ _ :none _ _] (semver-embed-fail "it has no patch")
+    case _ [[:done]]
+
+def semver-embed-skip-value [s open]
+  match (semver-embed-top open)
+    case :none (pop s)
+    case :member (semver-embed-mark [:skip (semver-embed-mark :object open)] s)
+    case :array s
+    case :object (fail :protocol-order "the events hold a value where a key is due, which a tree's never do")
+
+def semver-embed-skip-open [s open container]
+  match (semver-embed-top open)
+    case :none (semver-embed-mark [:skip (push container open)] s)
+    case :member (semver-embed-mark [:skip (push container (semver-embed-mark :object open))] s)
+    case :array (semver-embed-mark [:skip (push container open)] s)
+    case :object (fail :protocol-order "the events hold a value where a key is due, which a tree's never do")
+
+def semver-embed-skip-close [s open container]
+  match [(semver-embed-top open) container]
+    case [:object :object] (semver-embed-skip-closed s (pop open))
+    case [:array :array] (semver-embed-skip-closed s (pop open))
+    case _ (fail :protocol-order "the events end a container that is not open, or one whose member has no value, which a tree's never do")
+
+def semver-embed-skip-closed [s open]
+  match (count open)
+    case 0 (pop s)
+    case _ (semver-embed-mark [:skip open] s)
+
+def semver-embed-skip [s open event]
+  match event
+    case object-start (semver-embed-skip-open s open :object)
+    case array-start (semver-embed-skip-open s open :array)
+    case (key name)
+      match (semver-embed-top open)
+        case :object (semver-embed-mark [:skip (semver-embed-mark :member open)] s)
+        case _ (fail :protocol-order "the events hold a key where a value is due, which a tree's never do")
+    case (scalar value) (semver-embed-skip-value s open)
+    case object-end (semver-embed-skip-close s open :object)
+    case array-end (semver-embed-skip-close s open :array)
+
+def semver-embed-root [event]
+  match event
+    case object-start [[:version :key :none :none :none :none :none]]
+    case array-start (semver-embed-fail "its root is a list")
+    case (scalar value) (semver-embed-fail (string-join "" ["its root is " (semver-embed-kind value)]))
+    case _ (fail :protocol-order "the events begin with an end or a key, which a tree's never do")
+
+; The state after an event.
+def semver-embed-next [s event]
+  match (semver-embed-top s)
+    case :none (semver-embed-root event)
+    case [:done] (fail :protocol-order "the events hold more after the root value, which a tree's never do")
+    case [:skip open] (semver-embed-skip s open event)
+    case [:ids name texts]
+      match event
+        case (scalar value) (semver-embed-mark [:ids name (push (semver-embed-identifier name value) texts)] s)
+        case array-end (semver-embed-ids-end s name texts)
+        case object-start (semver-embed-fail (string-join "" ["an identifier of the " name " is an object"]))
+        case array-start (semver-embed-fail (string-join "" ["an identifier of the " name " is a list"]))
+        case _ (fail :protocol-order "the events hold a key or an object's end inside a list, which a tree's never do")
+    case [:version :key ma mi pa pr bu]
+      match event
+        case (key name) (semver-embed-key s [:version :key ma mi pa pr bu] name)
+        case object-end (semver-embed-end [:version :key ma mi pa pr bu])
+        case _ (fail :protocol-order "the events hold a value where a key is due, which a tree's never do")
+    case [:version [:value name] ma mi pa pr bu]
+      match event
+        case (scalar value) (semver-embed-part s [:version [:value name] ma mi pa pr bu] name value)
+        case object-start (semver-embed-open s name :object)
+        case array-start (semver-embed-open s name :array)
+        case _ (fail :protocol-order "the events hold a key or an end where a value is due, which a tree's never do")
+
+; Each event passes through once it is checked.
+def semver-embed-step [s event]
+  transition (semver-embed-next s event) [event]
+
+def semver-embed-finish [s]
+  match (semver-embed-top s)
+    case [:done] []
+    case :none (fail :protocol-order "the events hold no value, where a tree's hold one")
+    case _ (fail :protocol-order "the events ended inside a container, which a tree's never do")
+
+; The embedding: a plain tree's events in, a version's out, unchanged.
+def semver-embed [input]
+  as-events (scan-emit [] semver-embed-step semver-embed-finish (events input))
+
+; The reverse: a version's events in, the plain tree's out, unchanged.
+def semver-unembed [input]
+  input
