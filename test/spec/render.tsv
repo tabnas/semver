@@ -1,0 +1,25 @@
+input	expected
+# Versions the translation render (alchemy/render.alc) writes, as alchemy
+# runs it, each under a comment holding the tree it was given, and the
+# value every reader reads from them. A prerelease or a build given as one
+# string is split at its dots and each identifier checked as one in a list
+# is, then written as the string was; it reads back as the list of its
+# identifiers, a numeric prerelease identifier as a number. The render
+# refuses, with TARGET_VALUE_UNREPRESENTABLE and before it writes
+# anything, a string with an empty identifier ("a..b", ".a", "a.") or a
+# prerelease identifier of digits with a leading zero ("01"), and a major,
+# minor or patch of digits with a leading zero however many digits follow
+# it ("099999999999999999"): strict.tsv holds versions of each of those
+# shapes, which no reader accepts.
+# {"major":1,"minor":2,"patch":3,"prerelease":"alpha.1"}
+1.2.3-alpha.1	{"major":1,"minor":2,"patch":3,"prerelease":["alpha",1],"build":[]}
+# {"major":1,"minor":2,"patch":3,"prerelease":"0.a.-.--.a-b"}
+1.2.3-0.a.-.--.a-b	{"major":1,"minor":2,"patch":3,"prerelease":[0,"a","-","--","a-b"],"build":[]}
+# {"major":1,"minor":2,"patch":3,"build":"001.0a.exp-sha.5114f85"}: a build identifier may begin with a zero
+1.2.3+001.0a.exp-sha.5114f85	{"major":1,"minor":2,"patch":3,"prerelease":[],"build":["001","0a","exp-sha","5114f85"]}
+# {"major":1,"minor":2,"patch":3,"prerelease":"x.7.z.92","build":"01"}
+1.2.3-x.7.z.92+01	{"major":1,"minor":2,"patch":3,"prerelease":["x",7,"z",92],"build":["01"]}
+# {"major":"10","minor":"0","patch":"20","prerelease":["rc",1]}: a major, minor or patch as a string of digits
+10.0.20-rc.1	{"major":10,"minor":0,"patch":20,"prerelease":["rc",1],"build":[]}
+# {"major":1,"minor":2,"patch":3,"prerelease":"","build":null}: neither is written, and each reads back as an empty list
+1.2.3	{"major":1,"minor":2,"patch":3,"prerelease":[],"build":[]}
