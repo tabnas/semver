@@ -235,6 +235,7 @@ fn there_is_no_executable_register_and_that_is_deliberate() {
             "build.tsv",
             "core.tsv",
             "prerelease.tsv",
+            "render.tsv",
             "spec-examples.tsv",
             "strict.tsv",
         ],

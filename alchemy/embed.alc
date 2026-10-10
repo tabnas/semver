@@ -15,13 +15,15 @@
 ; are each a list of identifiers or one string of identifiers joined by
 ; dots, or null or empty. An identifier is a string of `0-9`, `A-Z`,
 ; `a-z` and `-`, not empty, or a number written in digits, and a
-; prerelease identifier of digits does not begin with a zero. Every
-; other member passes through, and the render does not write it. Each
-; check is the render's, and so is each failure: any other tree fails
-; with TARGET_VALUE_UNREPRESENTABLE, saying what a version needs, before
-; the render writes anything, and events no tree has fail with
-; PROTOCOL_ORDER_ERROR. A string of digits that begins with a zero is
-; told as the render tells it (see `alchemy/render.alc`).
+; prerelease identifier of digits does not begin with a zero; a string
+; of identifiers is split at its dots and each identifier checked so, as
+; one in a list is. Every other member passes through, and the render
+; does not write it. Each check is the render's, and so is each failure:
+; any other tree fails with TARGET_VALUE_UNREPRESENTABLE, saying what a
+; version needs, before the render writes anything, and events no tree
+; has fail with PROTOCOL_ORDER_ERROR. A string of digits that begins with
+; a zero is told by its characters, as the render tells it (see
+; `alchemy/render.alc`).
 ;
 ; The reverse is the identity: the reader builds a version's tree, and a
 ; version's tree is a plain tree. What it reads back is what the render
@@ -41,7 +43,6 @@ def semver-embed-needs
 
 def semver-embed-digits [[48 57]]
 def semver-embed-identifier-chars [[45 45] [48 57] [65 90] [97 122]]
-def semver-embed-dotted-chars [[45 46] [48 57] [65 90] [97 122]]
 
 def semver-embed-fail [what]
   fail :unrepresentable (string-join "" ["the document is not a version: " what "; " semver-embed-needs])
@@ -55,12 +56,7 @@ def semver-embed-kind [value]
     case _ "a container"
 
 def semver-embed-leading-zero [s]
-  match (compare (length s) 1)
-    case :greater
-      match (compare (number (string-join "" ["0." s])) (number "0.1"))
-        case :less true
-        case _ false
-    case _ false
+  if (is-number s) false true
 
 def semver-embed-number [what value]
   match (number-class value)
@@ -87,21 +83,21 @@ def semver-embed-core [name value]
     case :string (semver-embed-digit-string name value)
     case _ (semver-embed-fail (string-join "" [name " is " (semver-embed-kind value)]))
 
-def semver-embed-identifier [name value]
+def semver-embed-identifier [name what value]
   match (kind value)
-    case :number (semver-embed-number (string-join "" ["an identifier of the " name]) value)
+    case :number (semver-embed-number what value)
     case :string
       match (compare (length value) 0)
         case :greater
           if (chars-within semver-embed-identifier-chars value)
             if (chars-within semver-embed-digits value)
               match name
-                case "prerelease" (semver-embed-digit-string "an identifier of the prerelease" value)
+                case "prerelease" (semver-embed-digit-string what value)
                 case _ value
               value
-            semver-embed-fail (string-join "" ["an identifier of the " name " is " (quoted value) ", where an identifier holds 0-9, A-Z, a-z and -"])
-        case _ (semver-embed-fail (string-join "" ["an identifier of the " name " is the empty string"]))
-    case _ (semver-embed-fail (string-join "" ["an identifier of the " name " is " (semver-embed-kind value)]))
+            semver-embed-fail (string-join "" [what " is " (quoted value) ", where an identifier holds 0-9, A-Z, a-z and -"])
+        case _ (semver-embed-fail (string-join "" [what " is the empty string"]))
+    case _ (semver-embed-fail (string-join "" [what " is " (semver-embed-kind value)]))
 
 def semver-embed-optional [name value]
   match (kind value)
@@ -109,10 +105,7 @@ def semver-embed-optional [name value]
     case :string
       match value
         case "" :none
-        case _
-          if (chars-within semver-embed-dotted-chars value)
-            value
-            semver-embed-fail (string-join "" ["the " name " is " (quoted value) ", where its identifiers hold 0-9, A-Z, a-z and - and are joined by dots"])
+        case _ (map (partial semver-embed-identifier name (string-join "" ["an identifier of the " name " " (quoted value)])) (split "." value))
     case _ (semver-embed-fail (string-join "" ["the " name " is " (semver-embed-kind value) ", where it is a list of identifiers or one string of them"]))
 
 def semver-embed-top [s]
@@ -225,7 +218,7 @@ def semver-embed-next [s event]
     case [:skip open] (semver-embed-skip s open event)
     case [:ids name texts]
       match event
-        case (scalar value) (semver-embed-mark [:ids name (push (semver-embed-identifier name value) texts)] s)
+        case (scalar value) (semver-embed-mark [:ids name (push (semver-embed-identifier name (string-join "" ["an identifier of the " name]) value) texts)] s)
         case array-end (semver-embed-ids-end s name texts)
         case object-start (semver-embed-fail (string-join "" ["an identifier of the " name " is an object"]))
         case array-start (semver-embed-fail (string-join "" ["an identifier of the " name " is a list"]))

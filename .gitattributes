@@ -10,3 +10,16 @@ test/fixtures/*.json binary
 # the compiler's output: keep LF on every platform, and fold it in review
 # diffs as generated.
 semver-grammar.json text eol=lf linguist-generated=true
+
+# The translation parts (admin ADR-27). ts/embed-translate.js writes the
+# manifest and the alchemy files into ts/src/translate.ts as template
+# literals, which read a CRLF as an LF, and copies them into go/translate/
+# and rs/translate/, which go:embed and include_str! take byte for byte;
+# each runtime's translation test compares what it embeds with the file,
+# byte for byte. Keep LF on every platform, so a checkout that converts
+# line endings still holds the texts every runtime embeds.
+tabnas.plugin.json text eol=lf
+alchemy/*.alc text eol=lf
+go/translate/* text eol=lf
+rs/translate/* text eol=lf
+ts/src/translate.ts text eol=lf linguist-generated=true

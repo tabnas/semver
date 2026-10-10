@@ -11,7 +11,7 @@ cannot go stale unnoticed.
 
 There is ONE entry. Everything else the three runtimes do with a version
 string is identical, and that is not a claim made in prose: the shared
-fixtures in `test/spec/*.tsv` (five files) and `test/precedence/*.tsv`
+fixtures in `test/spec/*.tsv` (six files) and `test/precedence/*.tsv`
 (two files) run row for row in all three suites, and each suite grades
 the same generated corpus of 58,449 strings against the regular
 expression semver.org publishes, with the same pinned census and the
