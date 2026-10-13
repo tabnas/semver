@@ -59,7 +59,8 @@ const TRANSLATION: TranslationParts = Object.freeze({
       "A prerelease or build that is absent, null, empty or an empty list is not written, and reads back as an empty list.",
       "A prerelease or build given as one string is written as it is, after its hyphen or plus sign, and reads back as the list of its dot-separated identifiers.",
       "A major, minor, patch or prerelease identifier given as a string of digits reads back as a number, as the reader builds one, and a build identifier given as a number reads back as a string of its digits."
-    ]
+    ],
+    "whole": "A version is made from its text only once the whole text has been accepted, since a character after it can make it no version at all, so a document's tree is complete only at its end: it is read whole before anything is written."
   }
 }
 `,
